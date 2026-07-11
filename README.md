@@ -41,6 +41,9 @@ py setup.py
 - `REVIEW_DISCIPLINE`：默认学科（auto/science/cs/business/arts）
 - `REVIEW_MAX_CHARS`：单分片字数上限（默认 6000，长上下文模型可调大以减少分片数）
 - `REVIEW_NO_LLM=1`：强制走 Demo 占位输出（离线/测试用）
+- `REVIEW_NO_CACHE=1`：禁用响应缓存（等价 --no-cache）
+
+**中断续跑**：每次调用的响应默认缓存到 `work/cache.json`（按 `模型+提示词` 哈希）。生成被中断后，**直接重跑同一命令即可**——已完成的调用自动命中缓存跳过、不重新计费，只重做中断处那次及之后的。换模型或想全量重跑时加 `--no-cache`。
 
 ---
 
@@ -104,6 +107,7 @@ py agent.py sample_data -o 笔记.md \
 | `--discipline` | `auto`/`science`/`cs`/`business`/`arts`/`general`，注入学科专属指令 |
 | `--chapters` | 显式章节列表，逗号分隔，强制覆盖自动检测 |
 | `--max-chars` | 单分片最大字符数（默认 6000）；资料大时按章节切 + overlap，保证不漏 |
+| `--no-cache` | 禁用响应缓存，强制全量重跑（换模型/改提示词后用）；默认开启缓存以支持中断续跑 |
 
 ## 它如何保证"读完所有内容、不截断"
 
