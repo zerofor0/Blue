@@ -176,3 +176,144 @@ def build_chunk_user_prompt(course, chapter, chunk_text, chunk_index, total_chun
 【本片原始资料】
 {chunk_text}
 """
+
+
+# ======================================================================
+# 多文件分阶段流水线 · 各阶段 prompt（每个以 <!-- phase: NAME --> 开头，
+# 便于 Demo 模式识别阶段；真实模型会忽略该注释）
+# ======================================================================
+
+def build_classify_prompt(files_preview):
+    """阶段1：文件分类。files_preview=[(filename, preview_text)]。要求严格 JSON。"""
+    body = "\n\n".join(f"### 文件：{fn}\n{preview}" for fn, preview in files_preview)
+    return f"""<!-- phase: classify -->
+任务：判断每个文件属于哪一类学习资料。只输出一个 JSON 对象，键为文件名，值为以下五个标签之一：
+- courseware（课件：PPT/讲义，按章节组织，有标题、要点、图）
+- book（书籍/教材资料：系统性参考，大段说明文字）
+- note（笔记：他人整理的精简要点/手记）
+- exam（试题：往年真题、试卷、题库、习题及答案）
+- other（其他）
+
+依据每个文件的前几页内容判断。不要输出 JSON 以外的任何文字。
+
+{body}
+"""
+
+
+def build_courseware_title_prompt(files_info):
+    """阶段2a：为无标题课件判定标题/续篇。files_info=[(filename, preview, prev_title)]。"""
+    body = ""
+    for fn, preview, prev in files_info:
+        body += f"\n\n### 文件：{fn}\n上一个课件的标题：{prev or '（无）'}\n前几页内容：\n{preview}"
+    return f"""<!-- phase: cw-title -->
+任务：为下列无法自动识别标题的课件文件确定章节标题。只输出 JSON 数组，每个元素形如 {{"file":"文件名","title":"章节标题","is_continuation":false}}。
+规则：若该文件是上一个课件的续篇（内容承接、文件名暗示 part2/续/下/（二）等），则 is_continuation=true 且 title 填上一个标题；否则 is_continuation=false 且 title 用简短一句话概括主题（可带"第X章"）。不要输出 JSON 以外的文字。
+{body}
+"""
+
+
+def build_courseware_gen_prompt(course, chapter, chunk_text, idx, total, known=None):
+    """阶段2c：课件建骨分片生成。例题无来源时留占位，不自编。"""
+    known_line = ("已识别概念（命名保持一致，指同一对象请沿用同名）：" + "、".join(known[:120])) if known else ""
+    cont = f"\n本片为该章第 {idx}/{total} 片，请完整阅读。" if total > 1 else ""
+    return f"""<!-- phase: cw-gen -->
+课程：《{course}》   章节：{chapter}{cont}
+
+【硬性约束】
+1. 完整阅读下面从课件逐页提取的文本（已标注来源 [文件名 P页码]），不得遗漏。
+2. 按系统提示词的考试优先原则整理本章复习资料，严格使用规定排版标记。
+3. 例题规则（本阶段）：知识点需要例题时，若课件文本里恰好有相关题目可引用（标注来源）；若课件里没有，必须留占位 【例题：待补充】，本阶段一律不自编。
+4. 命名一致性：{known_line}
+5. 只输出本章正文 Markdown（小标题用 #### 及以下），不要课程级标题。
+
+【本片课件内容】
+{chunk_text}
+"""
+
+
+def build_refine_prompt(course, chapter, draft_md, supplement_md, kind):
+    """阶段3：用书/笔记对草稿做 增/删/调/换。"""
+    return f"""<!-- phase: refine -->
+课程：《{course}》   章节：{chapter}   补充资料类型：{kind}
+
+任务：下面"当前复习资料"是基于课件生成的草稿，再给你一份{kind}作为补充。请据此做 增/删/调/换 四类修订，输出修订后的完整章节 Markdown：
+- 增：课件遗漏或不考不重要但{kind}强调的重要知识点，补充进来。
+- 删：草稿里其实不考、不重要的内容，删掉或降为一句带过。
+- 调：按{kind}调整知识点重要性标记（【高频】/【重点】/【必背】）。
+- 换：纠正草稿里错误/不严谨的说法，或换用{kind}里更有代表性的表述/例题。
+约束：保留 【例题：待补充】 占位不要动（后续统一补题）；排版标记保持规范。只输出修订后的完整章节。
+
+=== 当前复习资料 ===
+{draft_md}
+
+=== {kind}补充内容 ===
+{supplement_md}
+"""
+
+
+def build_exam_analyze_prompt(course, exam_text):
+    """阶段4：试题分析，输出考试模式与代表题。"""
+    return f"""<!-- phase: exam-analyze -->
+课程：《{course}》
+
+任务：分析下面的试题内容，输出考试分析（Markdown），包含：
+1. 试题类型：判定为"往年真题"还是"普通题库"（给出依据）。
+2. 高频考点：反复出现的知识点。
+3. 难点：考得较难、易错的点。
+4. 易得分点：考得简单、基础的部分。
+5. 考试模式：题型分布、常见问法、分值倾向（若可推断）。
+6. 代表题：每个考点挑 1-2 道代表性题目，标注来源 [文件名 P页码]。
+只输出分析，不要改写题目本身。
+
+【试题内容】
+{exam_text}
+"""
+
+
+def build_exam_merge_prompt(course, partials):
+    """阶段4：把多份分片分析合并成一份统一分析。"""
+    body = "\n\n---\n\n".join(f"### 第 {i} 片分析\n{p}" for i, p in enumerate(partials, 1))
+    return f"""<!-- phase: exam-merge -->
+课程：《{course}》
+
+任务：下面是对试题分片分析得到的若干份"分片分析"。请合并成一份统一的考试分析（Markdown）：
+- 试题类型：综合各片判定"往年真题"还是"普通题库"。
+- 高频/难点/易得分点：去重合并，按出现频次排序。
+- 考试模式：综合归纳。
+- 代表题：去重保留每个考点的代表题（标注来源 [文件名 P页码]）。
+只输出合并后的完整分析。
+
+{body}
+"""
+
+
+def build_calibrate_prompt(course, chapter, draft_md, exam_analysis_md):
+    """阶段4：用考试分析校准本章草稿的重要性与顺序。"""
+    return f"""<!-- phase: calibrate -->
+课程：《{course}》   章节：{chapter}
+
+任务：根据下面的"考试分析"对本章草稿做校准：调整知识点重要性标记与先后顺序（高频/难点前置并提级，易得分/不考的降级或后移），并在相关知识点后补一句"往年考法"提示。保持 【例题：待补充】 占位不动。只输出校准后的完整章节。
+
+=== 考试分析 ===
+{exam_analysis_md}
+
+=== 本章草稿 ===
+{draft_md}
+"""
+
+
+def build_fill_examples_prompt(course, chapter, draft_md, problem_bank_md):
+    """阶段5：按优先级给占位补例题。"""
+    return f"""<!-- phase: fill-examples -->
+课程：《{course}》   章节：{chapter}
+
+任务：把下面章节草稿里的 【例题：待补充】 占位逐一替换为真实例题（含题面与简要解答）。选题优先级（从高到低）：
+1. 课件题；2. 往年真题原题；3. 题库题；4. 自编题（仅当上面都没有时）。
+下面的"题目来源池"按层级给出，优先用高层级；若池中没有匹配该知识点的题，再自编并标注（自编）。保留占位以外的全部内容与排版标记不变。只输出替换后的完整章节。
+
+=== 题目来源池 ===
+{problem_bank_md}
+
+=== 本章草稿 ===
+{draft_md}
+"""

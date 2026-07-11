@@ -85,6 +85,7 @@ def main():
         max_chars=max_chars,
         api_base="", api_key="", model="",
         no_llm=no_llm,
+        no_cache=os.getenv("REVIEW_NO_CACHE") == "1",
     )
     try:
         agent.run(INPUT, out, args)
