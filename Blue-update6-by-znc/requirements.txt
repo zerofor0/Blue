@@ -1,0 +1,11 @@
+# 复习笔记智能助手 - 依赖
+# 必装（提取 + 接口）
+python-pptx>=0.6.21      # PPTX 提取
+python-docx>=1.0         # DOCX 提取
+PyMuPDF>=1.23            # PDF 提取（import 名为 fitz）
+openai>=1.0              # 大模型调用（OpenAI 兼容接口：GLM/DeepSeek/Qwen/Moonshot/OpenAI）
+
+# 可选（图片 OCR；不装则图片自动跳过并告警）
+# 采用 RapidOCR（基于 ONNX Runtime 跑 PaddleOCR 同源中文模型），不依赖 paddlepaddle，
+# 规避 paddlepaddle 对 Python 版本（3.13/3.14 暂无 wheel）的硬限制。
+rapidocr-onnxruntime>=1.2.3
