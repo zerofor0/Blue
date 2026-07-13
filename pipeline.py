@@ -214,25 +214,31 @@ def detect_chapters(records: list[Record], explicit: list[str] | None = None) ->
 
 # ============================ 聚合 / 渲染 ============================
 def extract_formulas(md: str) -> list[str]:
+    """从各章抽出可放进'公式汇总'的行。只收真正含数学段且数学占主体的公式行，
+    剔除反引号整包的代码、中文过多的说明、列表序号文字。"""
     out = []
     for raw in md.splitlines():
         s = re.sub(r"^[-*•]\s+", "", raw.strip())
-        s = s.strip("`* ").strip()
-        if not s or s.startswith(("|", "#", "【")):
+        # 整行被反引号包住（代码块/误包公式）一律不收
+        if s.startswith("`") and s.endswith("`") and s.count("`") == 2:
             continue
-        if "公式" in s and ("：" in s or ":" in s):
-            s = re.sub(r"^.*?公式\s*[：:]\s*", "", s).strip("`* ").strip()
-            if not s:
-                continue
-        numbered = bool(re.search(r"（\s*\d+\s*[-－]\s*\d+\s*）|\(\s*\d+\s*-\s*\d+\s*\)", s))
+        s = s.strip("`* ").strip()
+        if not s or s.startswith(("|", "#", "【", "1.", "2.", "3.", "4.", "5.")):
+            continue
+        # 必须含数学段 $...$ 或 $$...$$
+        if "$" not in s:
+            continue
         cn_count = len(re.findall(r"[一-龥]", s))
-        is_formula = numbered or (
-            "=" in s and len(s) <= 60 and cn_count <= 6
-            and re.search(r"[A-Za-z一-鿿]+\s*=\s*", s)
-            and not any(w in s for w in ("因为", "所以", "表示", "等于", "定义", "是指"))
-        )
-        if is_formula:
-            out.append(s)
+        # 只收以 $ 开头的纯公式行（排除"性质1：$...$"这类带前缀的例题句）
+        if not s.startswith("$"):
+            continue
+        math_len = sum(len(m) for m in re.findall(r"\$\$.*?\$\$|\$[^$]+\$", s, flags=re.S))
+        if math_len < len(s) * 0.7:      # 数学段需占主体
+            continue
+        if cn_count > 2:                 # 含中文即为说明，丢
+            continue
+        s = re.sub(r"\*+", "", s).strip()
+        out.append(s)
     seen, res = set(), []
     for f in out:
         if f not in seen:
@@ -256,36 +262,81 @@ def _collect_block(lines, i):
 
 
 def extract_easy_wrong(md: str) -> list[str]:
+    """识别 【易错点】（含编号项如 '4. 【易错点】：内容'），收集同行内容及后续连续条目。"""
     out, lines, i = [], md.splitlines(), 0
     while i < len(lines):
         s = lines[i].strip()
-        m = re.match(r"【\s*易错[^】]*】", s)
+        # 去掉行首编号 '4. ' 再匹配 【易错点】
+        s2 = re.sub(r"^\d+[.、]\s*", "", s)
+        m = re.search(r"【\s*易错[^】]*】", s2)
         if m:
-            items, nxt = _collect_block(lines, i)
-            out.extend(items if items else ([s[m.end():].strip(" ：:-").strip()] if s[m.end():].strip() else []))
-            i = max(nxt, i + 1)
+            # 同行 【易错点】 后的内容
+            rest = s2[m.end():].strip(" ：:-").strip()
+            if rest:
+                out.append(rest)
+            # 后续连续的列表项/续行（直到空行或新标记/标题）
+            j = i + 1
+            while j < len(lines):
+                t = lines[j].strip()
+                if not t or t.startswith(("#", "【")) or t.startswith("###") or t.startswith("####"):
+                    break
+                tm = re.match(r"^[-*•]\s+(.+)", t) or re.match(r"^\d+[.、]\s*(.+)", t)
+                if tm:
+                    out.append(tm.group(1).strip()); j += 1
+                elif "【" in t:
+                    break
+                else:
+                    break
+            i = j
         else:
             i += 1
     return out
 
 
 def extract_high_freq(md: str) -> list[str]:
+    """识别高频考点：含 【必背/重点/高频】 标记的行、'**高频考点排序**'、以及带这些标记的 #### 标题。"""
     out, lines, i = [], md.splitlines(), 0
     while i < len(lines):
         s = lines[i].strip()
-        m = re.match(r"【\s*([^】]*?)】", s)
-        if m and any(k in m.group(1) for k in ("必背", "重点", "高频")):
-            tag = ("【必背】" if "必背" in m.group(1)
-                   else "【重点】" if "重点" in m.group(1) else "【高频】")
-            items, nxt = _collect_block(lines, i)
-            if items:
-                out.extend(f"{tag} {it}" for it in items)
-            elif s[m.end():].strip():
-                out.append(f"{tag} {s[m.end():].strip(' ：:-').strip()}")
-            i = max(nxt, i + 1)
+        # 模式1：【必背/重点/高频】 标记行
+        m = re.search(r"【\s*([^】]*?(?:必背|重点|高频)[^】]*?)】", s)
+        # 模式2：**高频考点排序**：内容
+        m2 = re.match(r"^[-*•]?\s*\*{0,2}高频考点排序\*{0,2}\s*[：:]\s*(.+)", s)
+        if m2:
+            out.append("【高频排序】" + m2.group(1).strip())
+            i += 1; continue
+        if m:
+            key = m.group(1)
+            tag = ("【必背】" if "必背" in key else "【重点】" if "重点" in key else "【高频】")
+            # 若是 #### 标题行（如 '#### 概率模型 【必背】'），取标题名
+            if s.startswith("####"):
+                title = re.sub(r"【[^】]*】", "", s.lstrip("#").strip()).strip()
+                if title:
+                    out.append(f"{tag} {title}")
+            # 同行标记后的内容
+            rest = s[m.end():].strip(" ：:-").strip()
+            if rest and not s.startswith("####"):
+                out.append(f"{tag} {rest}")
+            # 后续连续条目
+            j = i + 1
+            while j < len(lines):
+                t = lines[j].strip()
+                if not t or t.startswith(("#", "【")) or t.startswith("###"):
+                    break
+                tm = re.match(r"^[-*•]\s+(.+)", t) or re.match(r"^\d+[.、]\s*(.+)", t)
+                if tm:
+                    out.append(f"{tag} {tm.group(1).strip()}"); j += 1
+                else:
+                    break
+            i = j
         else:
             i += 1
-    return out
+    # 去重
+    seen, res = set(), []
+    for x in out:
+        if x not in seen:
+            seen.add(x); res.append(x)
+    return res
 
 
 def detect_exam_scope(records: list[Record], chapters: list[Chapter]) -> str:
@@ -329,16 +380,6 @@ def render_final(course, exam_scope, framework, chapter_md, formulas, easy_wrong
     parts.append("## 二、课程知识框架\n")
     parts.append("```"); parts.append(course); parts.append(framework); parts.append("```\n")
     parts.append("## 三、各章详解\n"); parts.append("\n\n".join(chapter_md) + "\n")
-    parts.append("## 四、全课程公式汇总\n")
-    parts.append("\n".join(f"- `{f}`" for f in formulas) if formulas else "（详见各章节）"); parts.append("\n")
-    parts.append("## 五、全课程易错点汇总\n")
-    parts.append("\n".join(f"- {e}" for e in easy_wrong) if easy_wrong else "（详见各章节【易错点】标记）"); parts.append("\n")
-    parts.append("## 六、全课程高频考点汇总\n")
-    parts.append("\n".join(f"- {h}" for h in high_freq) if high_freq else "（详见各章节【必背/重点/高频】标记）"); parts.append("\n")
-    parts.append("## 七、考前速查手册\n")
-    parts.append("> 最后冲刺用：每个章节一句话记忆 + 必背公式。\n")
-    for ch in chapters:
-        parts.append(f"- **{ch.name}**：见该章【记忆】与必背公式。")
     if exam_appendix:
         parts.append("\n## 附：试题索引与代表题\n")
         parts.append("> 来源于试题资料，按知识点索引（课件题 > 往年真题 > 题库题 > 自编）。\n")
@@ -401,7 +442,7 @@ def heuristic_classify(fn: str, recs: list[Record]) -> str:
 
 def classify_files(by_file: dict, client, sys_prompt: str) -> dict:
     previews = [(fn, _preview(recs)) for fn, recs in by_file.items()]
-    raw = client.chat(sys_prompt, build_classify_prompt(previews))
+    raw = _safe_chat(client, sys_prompt, build_classify_prompt(previews), "", "文件分类")
     types = _parse_json(raw)
     if not isinstance(types, dict):
         types = {}
@@ -448,7 +489,7 @@ def resolve_titles(cw_by_file: dict, client, sys_prompt: str) -> dict:
             need.append((fn, recs, prev))
     if need:
         info = [(fn, _preview(recs), pv) for fn, recs, pv in need]
-        raw = client.chat(sys_prompt, build_courseware_title_prompt(info))
+        raw = _safe_chat(client, sys_prompt, build_courseware_title_prompt(info), "", "课件标题判定")
         mapping = _parse_json(raw)
         mdict = {}
         if isinstance(mapping, list):
@@ -486,6 +527,17 @@ def group_courseware_chapters(cw_by_file: dict, file_titles: dict) -> list[Chapt
     return [Chapter("课件内容", all_recs)]
 
 
+def _safe_chat(client, sys_prompt, user, fallback, label):
+    """调用模型；连续失败则打印警告并返回 fallback，不抛错、不中断整条流水线。
+    失败不会被缓存（CachingClient 只在成功后落盘），故重跑会自动重试本次。"""
+    try:
+        return client.chat(sys_prompt, user)
+    except Exception as e:
+        print(f"      [skip] {label} 失败，跳过继续（{type(e).__name__}: {str(e)[:80]}）。重跑会重试。",
+              flush=True)
+        return fallback
+
+
 def phase_courseware(courseware_files, by_file, client, sys_prompt, args, work):
     cw_by_file = {fn: by_file[fn] for fn in courseware_files}
     explicit = [s.strip() for s in (args.chapters.split(",") if args.chapters else []) if s.strip()]
@@ -506,7 +558,8 @@ def phase_courseware(courseware_files, by_file, client, sys_prompt, args, work):
                 continue
             user = build_courseware_gen_prompt(args.course, ch.name, render_chunk_text(ck), k, len(chunks), known)
             print(f"      - 第{ci}章 [{ch.name}] 片 {k}/{len(chunks)} ...", flush=True)
-            md = client.chat(sys_prompt, user)
+            md = _safe_chat(client, sys_prompt, user,
+                            f"> （第{ci}章 片{k} 生成失败，待重试）", f"第{ci}章 片{k}")
             parts.append(md)
             _write_work(work, f"10_ch{ci}_c{k}.md", md)
             for m in re.findall(r"####?\s*(.+)", md):
@@ -529,7 +582,9 @@ def gen_fallback_chapters(records, client, sys_prompt, args, work, course_label)
             if not ck:
                 continue
             user = build_courseware_gen_prompt(args.course, ch.name, render_chunk_text(ck), k, len(chunks), known)
-            md = client.chat(sys_prompt, user); parts.append(md)
+            md = _safe_chat(client, sys_prompt, user,
+                            f"> （第{ci}章 片{k} 生成失败，待重试）", f"第{ci}章 片{k}")
+            parts.append(md)
         draft[ch.name] = _merge_chapter_parts(parts)
         _write_work(work, f"10_ch{ci}.md", draft[ch.name])
     return chapters, draft
@@ -577,7 +632,7 @@ def phase_refine(draft, chapters, supp_recs, kind, client, sys_prompt, args, wor
             continue
         print(f"      - 第{ci}章 [{ch.name}] 用{kind}精修 ...", flush=True)
         user = build_refine_prompt(args.course, ch.name, draft[ch.name], supp, kind)
-        draft[ch.name] = client.chat(sys_prompt, user)
+        draft[ch.name] = _safe_chat(client, sys_prompt, user, draft[ch.name], f"第{ci}章 {kind}精修")
         _write_work(work, f"20_ch{ci}.md", draft[ch.name])
     return draft
 
@@ -632,19 +687,26 @@ def phase_exam(draft, chapters, exam_recs, client, sys_prompt, args, work):
         if not ck:
             continue
         print(f"      - 分析试题 片 {k}/{len(chunks)} ...", flush=True)
-        partials.append(client.chat(sys_prompt, build_exam_analyze_prompt(args.course, render_chunk_text(ck))))
+        p = _safe_chat(client, sys_prompt, build_exam_analyze_prompt(args.course, render_chunk_text(ck)),
+                       "", f"试题分析 片{k}")
+        if p:
+            partials.append(p)
     if len(partials) == 1:
         analysis = partials[0]
-    elif partials:
+    elif len(partials) > 1:
         print("      - 合并试题分析 ...", flush=True)
-        analysis = client.chat(sys_prompt, build_exam_merge_prompt(args.course, partials))
+        analysis = _safe_chat(client, sys_prompt, build_exam_merge_prompt(args.course, partials),
+                              "\n\n".join(partials), "合并试题分析")   # 合并失败则退化为拼接
     else:
         analysis = ""
     _write_work(work, "30_exam_analysis.md", analysis)
+    if not analysis:
+        print("      [skip] 试题分析全部失败，跳过逐章校准。", flush=True)
+        return draft, analysis
     for ci, ch in enumerate(chapters, 1):
         print(f"      - 第{ci}章 [{ch.name}] 按试题校准 ...", flush=True)
         user = build_calibrate_prompt(args.course, ch.name, draft[ch.name], analysis)
-        draft[ch.name] = client.chat(sys_prompt, user)
+        draft[ch.name] = _safe_chat(client, sys_prompt, user, draft[ch.name], f"第{ci}章 校准")
         _write_work(work, f"30_ch{ci}.md", draft[ch.name])
     return draft, analysis
 
@@ -662,7 +724,8 @@ def phase_fill_examples(draft, chapters, problems, client, sys_prompt, args, wor
             bank = "（无现成题目来源，请自编合适的例题）"
         print(f"      - 第{ci}章 [{ch.name}] 补例题 ...", flush=True)
         user = build_fill_examples_prompt(args.course, ch.name, draft[ch.name], bank)
-        draft[ch.name] = client.chat(sys_prompt, user)
+        # 失败则保留原草稿（含 【例题：待补充】 占位），不中断；重跑会重试
+        draft[ch.name] = _safe_chat(client, sys_prompt, user, draft[ch.name], f"第{ci}章 补例题")
         _write_work(work, f"40_ch{ci}.md", draft[ch.name])
     return draft
 
@@ -745,13 +808,24 @@ def run_pipeline(input_dir: Path, out_path: Path, args):
     chapter_md = [f"{_chapter_heading(i, ch.name)}\n\n{draft.get(ch.name, '')}"
                   for i, ch in enumerate(chapters, 1)]
     all_md = "\n\n".join(chapter_md)
+    leftover = all_md.count(EXAMPLE_PLACEHOLDER)
+    if leftover:
+        print(f"[warn] 仍有 {leftover} 处 【例题：待补充】 未填（某章补例题失败已跳过）；"
+              f"笔记仍已生成，重跑会自动重试这些章节。")
     md = render_final(
         args.course, detect_exam_scope(records, chapters), build_framework_tree(chapters),
-        chapter_md, extract_formulas(all_md), extract_easy_wrong(all_md),
-        extract_high_freq(all_md), chapters,
+        chapter_md, extract_formulas(all_md), [], [], chapters,
         exam_appendix=(analysis if exam_recs else ""),
     )
     out_path.write_text(md, encoding="utf-8")
     if isinstance(client, CachingClient) and (client.hits or client.misses):
         print(f"[cache] 命中 {client.hits} / 共 {client.hits + client.misses} 次调用（仅未命中才真正请求/计费）")
     print(f"[done] 完成 -> {out_path}（中间产物见 {work}）")
+
+    # 可选：生成 PDF（best-effort，失败不影响已产出的 MD）
+    if getattr(args, "pdf", False):
+        try:
+            import build_pdf
+            build_pdf.build_pdf(out_path, out_path.with_suffix(".pdf"), args.course)
+        except Exception as e:
+            print(f"[pdf] PDF 生成失败（不影响 MD）：{type(e).__name__}: {e}")

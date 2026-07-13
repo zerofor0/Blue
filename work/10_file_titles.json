@@ -1,7 +1,4 @@
 {
-  "Lecture01_handout.pdf": "第1讲 概率模型与性质",
-  "Lecture02_handout.pdf": "第2讲 概率空间与条件概率",
-  "Lecture03_handout.pdf": "第3讲 独立性与随机变量",
-  "Lecture04_handout.pdf": "第4讲 常见随机变量",
-  "Lecture05_handout.pdf": "第5讲 概率分布函数、随机变量函数的分布与随机向量的分布"
+  "Lecture01_handout.pdf": "概率模型与性质",
+  "Lecture02_handout.pdf": "概率空间、条件概率"
 }

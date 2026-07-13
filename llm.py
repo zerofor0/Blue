@@ -43,26 +43,26 @@ def _demo_classify(fn: str) -> str:
 
 
 def _demo_chapter() -> str:
-    """cw-gen 阶段占位输出（含 【例题：待补充】，留给阶段5 填）。"""
+    """cw-gen 阶段占位输出，展示模板式结构（含 【例题：待补充】，留给阶段5 填）。"""
     return (
-        "#### （示例）核心知识点\n\n"
-        "【定义】Demo 占位定义。配置真实 API 后，此处为基于课件整理的精确定义。\n\n"
-        "**核心原理**：因果关系 / 推导逻辑 / 理论依据（Demo 占位）。\n\n"
-        "【重点】\n"
-        "- 考点一：典型考察方式（Demo 占位）。\n"
-        "- 考点二：常结合 XX 一起出题（Demo 占位）。\n\n"
+        "**本章总览**（Demo 占位）：核心问题、高频考点排序、方法清单。配置真实 API 后为基于课件的总览。\n\n"
+        "#### （示例）核心知识点 【重点】\n\n"
+        "【定义】Demo 占位定义。配置真实 API 后为基于课件整理的精确定义。\n\n"
+        "**原理与推导**：因果关系 / 推导过程 / 理论依据（Demo 占位）。\n\n"
         "【解题步骤】\n1. 第一步...\n2. 第二步...\n3. 应用场景：...\n\n"
         "【易错点】\n- 容易混淆：A 与 B 的区别。\n- 常见错误：把 X 当成 Y。\n\n"
-        + _PLACEHOLDER + "\n\n"
-        "#### 本章总结\n- 本章核心结论：（Demo 占位）\n"
-        "- 【记忆】一句话记忆：原因 -> 过程 -> 结果。\n\n"
-        "**必背公式**\n\nF = m a  （1-1）\n"
+        "**例题**\n" + _PLACEHOLDER + "\n\n"
+        "#### 本章小结\n"
+        "- 知识关系：（Demo 占位）\n"
+        "- 核心结论：（Demo 占位）\n"
+        "- 必背公式：`F = m a  （1-1）`\n"
+        "- 【记忆】原因 -> 过程 -> 结果。\n"
     )
 
 
 class LLMClient:
     """OpenAI 兼容客户端。"""
-    def __init__(self, base_url, api_key, model):
+    def __init__(self, base_url, api_key, model, timeout=240):
         try:
             from openai import OpenAI
         except ImportError as e:
@@ -70,6 +70,7 @@ class LLMClient:
         # max_retries=0：自己在 chat() 里重试，便于打印进度，避免 SDK 默认重试导致的长时间沉默
         self.client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
         self.model = model
+        self.timeout = timeout
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         import time
@@ -86,7 +87,7 @@ class LLMClient:
                         {"role": "user", "content": user_prompt},
                     ],
                     temperature=0.3,
-                    timeout=120,          # 单次最多等 120 秒，不再无限沉默
+                    timeout=self.timeout,   # 单次超时，默认 240s，可用 REVIEW_TIMEOUT 调
                 )
                 return resp.choices[0].message.content.strip()
             except Exception as e:
@@ -144,8 +145,10 @@ class DemoClient:
             draft = _extract_section(user_prompt, "本章草稿") or _demo_chapter()
             return draft.replace(
                 _PLACEHOLDER,
-                "【真题】（Demo 例题）已知需求函数 Qd=100-2P，供给函数 Qs=20+2P，求均衡价格与数量。"
-                "解：令 Qd=Qs 得 100-2P=20+2P，故 P=20，Q=60。",
+                "- **题目**：【真题】（Demo）已知 Qd=100-2P，Qs=20+2P，求均衡价格与数量。\n"
+                "- **思路**：均衡即令需求等于供给，解关于 P 的方程。\n"
+                "- **解答**：100-2P = 20+2P -> 4P = 80 -> P=20；Q = 100-2*20 = 60。\n"
+                "- **技巧**：求均衡统一'令 Qd=Qs'，注意定义域。",
             )
 
         # 默认：cw-gen（课件建骨分片）
@@ -217,5 +220,9 @@ def get_llm_client(args):
         print("[info] 未配置 API，自动回退到 Demo 模式。"
               "（可用 --api-base/--api-key/--model 或环境变量 REVIEW_API_BASE/REVIEW_API_KEY/REVIEW_MODEL）")
         return DemoClient(), "demo"
-    print(f"[info] 使用大模型：{model} @ {base}")
-    return LLMClient(base, key, model), model
+    try:
+        timeout = int(os.getenv("REVIEW_TIMEOUT", "300"))
+    except ValueError:
+        timeout = 300
+    print(f"[info] 使用大模型：{model} @ {base}（单次超时 {timeout}s）")
+    return LLMClient(base, key, model, timeout), model
