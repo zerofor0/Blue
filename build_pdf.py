@@ -16,8 +16,9 @@ from pathlib import Path
 
 import md2tex
 
-REQUIRED_PACKAGES = ["ctex.sty", "tcolorbox.sty", "fancyhdr.sty",
-                     "listings.sty", "titlesec.sty", "tabularx.sty", "hyperref.sty"]
+REQUIRED_PACKAGES = ["ctex.sty", "tcolorbox.sty", "fancyhdr.sty", "listings.sty",
+                     "titlesec.sty", "tabularx.sty", "hyperref.sty",
+                     "mathrsfs.sty", "mathtools.sty", "pdfcol.sty"]
 
 # 黄骏斌模板配色（PyMuPDF 实测）
 PREAMBLE = r"""% !TEX program = xelatex
@@ -64,12 +65,12 @@ PREAMBLE = r"""% !TEX program = xelatex
 \newtcolorbox{examplebox}[1]{
   colback=lavender,colframe=purpleframe,boxrule=0.8pt,arc=2pt,breakable,
   left=6pt,right=6pt,top=5pt,bottom=5pt,
-  title=#1,fonttitle=\bfseries,coltitle=white,colbacktitle=purpleframe}
+  title={#1},fonttitle=\bfseries,coltitle=white,colbacktitle=purpleframe}
 % 例题分段子盒：蓝标题条 + 浅灰正文
 \newtcolorbox{expart}[1]{
   colback=lightgray,colframe=titleblue,boxrule=0.4pt,arc=1pt,breakable,
   left=5pt,right=5pt,top=3pt,bottom=3pt,
-  title=#1,fonttitle=\bfseries\small,coltitle=white,colbacktitle=titleblue}
+  title={#1},fonttitle=\bfseries\small,coltitle=white,colbacktitle=titleblue}
 
 \usepackage{tabularx}
 \usepackage{titlesec}
@@ -93,9 +94,21 @@ PREAMBLE = r"""% !TEX program = xelatex
 """
 
 
+def _kpsewhich_bin() -> str:
+    """kpsewhich 可执行路径：优先 PATH，否则回退到 TinyTeX 默认目录（与 _xelatex 一致）。
+
+    TinyTeX 安装脚本不会把 bin 目录加入 PATH，若直接用裸 "kpsewhich" 会 FileNotFoundError，
+    导致所有宏包被误判为缺失。
+    """
+    if shutil.which("kpsewhich"):
+        return "kpsewhich"
+    cand = Path(os.environ.get("USERPROFILE", "")) / "AppData/Roaming/TinyTeX/bin/windows/kpsewhich.exe"
+    return str(cand) if cand.exists() else "kpsewhich"
+
+
 def _kpsewhich(pkg: str) -> bool:
     try:
-        return subprocess.run(["kpsewhich", pkg], capture_output=True, text=True).stdout.strip() != ""
+        return subprocess.run([_kpsewhich_bin(), pkg], capture_output=True, text=True).stdout.strip() != ""
     except Exception:
         return False
 
@@ -137,9 +150,9 @@ def _extract_title(md: str, fallback: str):
 def build_pdf(md_path: Path, pdf_path: Path, course: str | None = None) -> bool:
     missing = check_packages()
     if missing:
-        print("[pdf] 缺少 LaTeX 宏包，请先安装（一次性）：")
-        print("  tlmgr install ctex tcolorbox fancyhdr listings titlesec tabularx hyperref")
+        print("[pdf] 缺少 LaTeX 宏包（PDF 导出需要）：")
         print(f"  缺失：{', '.join(missing)}")
+        print("  修复：运行 `py setup.py` 会自动用 tlmgr 补齐；或参考 README「PDF 导出需要 LaTeX」。")
         return False
 
     md = Path(md_path).read_text(encoding="utf-8")
