@@ -175,8 +175,8 @@ def _get_ocr():
     if _OCR_ENGINE is not None:
         return _OCR_ENGINE
     try:
-        from paddleocr import PaddleOCR
-        _OCR_ENGINE = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+        from rapidocr_onnxruntime import RapidOCR
+        _OCR_ENGINE = RapidOCR()
     except Exception:
         _OCR_ENGINE = False
     return _OCR_ENGINE
@@ -187,24 +187,18 @@ def _ocr_image(path: Path) -> str:
     if not ocr:
         return ""
     try:
-        result = ocr.ocr(str(path), cls=True)
+        result, _ = ocr(str(path))
     except Exception:
         return ""
-    lines = []
-    for block in (result or []):
-        for item in (block or []):
-            try:
-                lines.append(item[1][0])
-            except Exception:
-                continue
-    return "\n".join(lines).strip()
+    # RapidOCR 返回 [[box, text, score], ...]，逐项取 text
+    return "\n".join(item[1] for item in (result or [])).strip()
 
 
 def extract_image(path: Path, idx: int):
     text = _ocr_image(path)
     if text:
         return [Record(source_file=path.name, source_type="image", page=idx, content=text)]
-    print(f"[warn] 图片 OCR 无文本或未启用 PaddleOCR：{path.name}")
+    print(f"[warn] 图片 OCR 无文本或未启用 RapidOCR：{path.name}")
     return []
 
 

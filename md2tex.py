@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""复习笔记 Markdown -> LaTeX 正文转换器（针对本项目生成的 MD 语法）。
+r"""复习笔记 Markdown -> LaTeX 正文转换器（针对本项目生成的 MD 语法）。
 
 设计要点：
 - 数学感知：$...$ / $$...$$ 整段原样透传（xelatex 原生渲染），非数学段转义 LaTeX 特殊字符。
@@ -71,7 +71,18 @@ def _inline(s: str) -> str:
     math_spans = []
 
     def take_math(m):
-        math_spans.append(m.group(0))
+        span = m.group(0)
+        # 裸数学（$...$ / $$...$$）原样透传，其内容必须是合法 TeX。OCR 垃圾常把
+        # 散落的 $ 误配成“数学”，若其中含下列字符会破坏 xelatex 编译，此时判为
+        # 非数学、原样返回，交由后续 _escape 转成合法字面量（保证总能编译）：
+        #   & —— 对齐符，裸行内数学里非法（"Misplaced alignment tab character &"）
+        #       但 \begin{...} 对齐环境（aligned/cases/matrix 等）内的 & 合法，需放行；
+        #       仅当 & 出现在无环境包裹的裸数学里时才判为 OCR 垃圾。
+        #   % —— 注释符，会吞掉同行后面的闭合 $（"Missing $"/"... invalid in math mode"）
+        #   （\% 是合法转义，不算）
+        if (("&" in span) and ("\\begin{" not in span)) or re.search(r"(?<!\\)%", span):
+            return span
+        math_spans.append(span)
         return f"{_PH}M{len(math_spans) - 1}{_PH}"
 
     s = re.sub(r"\$\$.*?\$\$", take_math, s, flags=re.S)
@@ -140,10 +151,74 @@ def _inline(s: str) -> str:
 
 
 # --------------------------- 块级元素 ---------------------------
+def _math_pdf_text(math_body: str) -> str:
+    r"""数学正文（不含外层 $）-> PDF 书签可用的纯文本，作为 \texorpdfstring 第二参数。
+
+    最佳努力降级：字体命令保留内容、\frac{a}{b}->a/b、上下标保留内容、其余 \command
+    退化为命令名。目的只是让 PDF 书签不残留 TeX 数学命令（否则 hyperref 警告/乱码）；
+    正文与目录仍由 \texorpdfstring 第一参数渲染真数学。"""
+    s = math_body
+    s = re.sub(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}", r"\1/\2", s)             # \frac{a}{b}->a/b
+    s = re.sub(r"\\(?:math[a-zA-Z]+|operatorname|bm)\s*\{([^{}]*)\}", r"\1", s)  # \mathbb{X}\mathcal{X}...->X
+    s = re.sub(r"[_^]\s*(\{[^{}]*\}|.?)", lambda m: m.group(1).strip("{}"), s)   # ^x _{xx}->保留内容
+    s = re.sub(r"\\([a-zA-Z]+)", r"\1", s)                                       # \lambda->lambda
+    s = re.sub(r"\\[^a-zA-Z]", "", s)                                            # \, \; 等间距丢弃
+    return s.strip()
+
+
+def _heading_text(text: str, *, for_section: bool) -> str:
+    r"""标题正文转换：数学感知转义 + 【标记】彩色标签。
+
+    与正文 _inline 同样先把 $...$ / $$...$$ 抽数学原样透传、再转义其余字符——否则
+    _escape 会把 $\mathbb{B}$ 破成 \$\textbackslash{}mathbb\{B\}\$，标题里的数学
+    就成了乱码字面量（即「标题位置公式不渲染」的根因）。
+
+    for_section=True（\section/\subsection/\subsubsection，进目录与 PDF 书签）时，
+    把每个数学段包进 \texorpdfstring{$真数学$}{降级纯文本}：正文与目录渲染真数学，
+    PDF 书签用降级文本，避免 hyperref「Token not allowed in a PDF string」。
+    """
+    math_spans = []
+
+    def take_math(m):
+        span = m.group(0)
+        # OCR 垃圾防护同 _inline：裸数学里出现无环境 & 或未转义 % 时判为非数学
+        if (("&" in span) and ("\\begin{" not in span)) or re.search(r"(?<!\\)%", span):
+            return span
+        math_spans.append(span)
+        return f"{_PH}M{len(math_spans) - 1}{_PH}"
+
+    s = re.sub(r"\$\$.*?\$\$", take_math, text, flags=re.S)
+    s = re.sub(r"\$[^$\n]+?\$", take_math, s)
+    s = _escape(s)
+    s = _convert_markers(s)
+    if not math_spans:
+        return s
+
+    pat = re.compile(_PH + r"M(\d+)" + _PH)
+
+    def restore(m):
+        span = math_spans[int(m.group(1))]
+        if span.startswith("$$"):  # 标题里的展示公式退化为行内（标题不宜套 equation 环境）
+            inner = span[2:-2]
+        else:
+            inner = span[1:-1]
+        if for_section:
+            return r"\texorpdfstring{$" + inner + "$}{" + _math_pdf_text(inner) + "}"
+        return "$" + inner + "$"
+
+    return pat.sub(restore, s)
+
+
 def _render_heading(level: int, text: str) -> str:
-    t = _convert_markers(_escape(text))  # 标题里标记做纯色标签
     if level == 1:
+        t = _heading_text(text, for_section=False)
         return r"\begin{center}{\LARGE\bfseries " + t + r"}\end{center}"
+    if level >= 5:
+        # 第 5/6 级标题（##### / ######）：不纳入 LaTeX section 体系（避免目录洪水、
+        # 也避免与 subsubsection 同级混淆），渲染为独立的粗体黑体小标题块。
+        t = _heading_text(text, for_section=False)
+        return r"\par\addvspace{1.2ex}\noindent{\bfseries\heiti " + t + r"}\par\medskip"
+    t = _heading_text(text, for_section=True)
     cmds = {2: r"\section", 3: r"\subsection", 4: r"\subsubsection"}
     cmd = cmds.get(level, r"\subsubsection")
     return cmd + "{" + t + "}"
@@ -178,7 +253,7 @@ def _render_table(rows) -> str:
     if not parsed:
         return ""
     ncols = max(len(r) for r in parsed)
-    spec = " >{\small}X" * ncols   # 每列自动换行 + 小一号字，保证不溢出
+    spec = r" >{\small}X" * ncols   # 每列自动换行 + 小一号字，保证不溢出
     out = [r"\par\medskip\noindent\begin{tabularx}{\linewidth}{" + spec.strip() + r"}", r"\hline"]
     for ri, r in enumerate(parsed):
         r = r + [""] * (ncols - len(r))
@@ -323,7 +398,7 @@ def md_to_tex(md: str) -> str:
             out.append(_render_example(block))
             continue
         # 标题
-        m = re.match(r"^(#{1,4})\s+(.*)$", line)
+        m = re.match(r"^(#{1,6})\s+(.*)$", line)
         if m:
             out.append(_render_heading(len(m.group(1)), m.group(2)))
             i += 1; continue

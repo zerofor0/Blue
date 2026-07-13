@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +18,8 @@ from llm import get_llm_client, CachingClient
 from prompts import (
     build_system_prompt, detect_discipline,
     build_classify_prompt, build_courseware_title_prompt, build_courseware_gen_prompt,
+    build_courseware_chapter_prompt, build_courseware_outline_prompt,
+    build_courseware_ends_prompt,
     build_refine_prompt, build_exam_analyze_prompt, build_exam_merge_prompt,
     build_calibrate_prompt, build_fill_examples_prompt,
 )
@@ -27,6 +30,11 @@ CHAPTER_RE = re.compile(
 )
 EXAMPLE_PLACEHOLDER = "【例题：待补充】"
 VALID_TYPES = ("courseware", "book", "note", "exam", "other")
+
+# 整章一次性生成的字符预算：章渲染文本 ≤ 此值则单次调用生成整章（天然单一总览/小结、
+# 统一编号、全局一致隶属）；超过则回退到「先大纲后分片」。默认 50000，对 128k 上下文
+# 模型安全；小上下文模型可经 REVIEW_CHAPTER_BUDGET 调小。
+CHAPTER_SINGLE_CALL_BUDGET = int(os.getenv("REVIEW_CHAPTER_BUDGET", "50000"))
 
 
 # ============================ 基础件（迁移自 agent.py）============================
@@ -161,6 +169,36 @@ def _chapter_heading(index: int, name: str) -> str:
     return f"### {name}" if CHAPTER_RE.match(name) else f"### 第{index}章 {name}"
 
 
+_CN_NUM = {"零": 0, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+           "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+
+
+def _chapter_number(name: str) -> int:
+    """从章名提取章号用于排序：第7章/第7 章/第七章 -> 7。无章号返回大数（排后）。"""
+    m = re.search(r"第\s*([0-9一二三四五六七八九十百零]+)\s*章", name)
+    if not m:
+        return 10 ** 6
+    s = m.group(1)
+    if s.isdigit():
+        return int(s)
+    if "十" in s:                      # 中文数字 1-99：十二/二十三/三十
+        a, _, b = s.partition("十")
+        tens = _CN_NUM.get(a, 1) if a else 1
+        ones = _CN_NUM.get(b, 0) if b else 0
+        return tens * 10 + ones
+    return _CN_NUM.get(s, 10 ** 6)
+
+
+def _sort_chapters_by_number(chapters: list[Chapter]) -> list[Chapter]:
+    """按章号升序排（稳定排序，无章号者保持原相对顺序排后）。
+
+    修文件名字典序导致的章序错乱：Lecture 07 / Lecture 09 / Lecture08 按字典序排成
+    7,9,8（空格 < '0'），但复习笔记应按章号 7,8,9 编排。在 render 前排序，不改变
+    各阶段 prompt（仍按文件序处理、命中既有缓存），只调整最终输出与框架树的章序。
+    """
+    return sorted(chapters, key=lambda c: _chapter_number(c.name))
+
+
 def _merge_chapter_parts(parts: list[str]) -> str:
     seen_heads = set()
     out_lines = []
@@ -168,6 +206,10 @@ def _merge_chapter_parts(parts: list[str]) -> str:
         for line in p.splitlines():
             s = line.strip()
             if s.startswith("###"):
+                # 防御：剥去残留的分片后缀"（本片部分）""（本片）"
+                if "本片" in s:
+                    line = re.sub(r"（本片部分）|（本片）", "", line)
+                    s = re.sub(r"（本片部分）|（本片）", "", s).strip()
                 key = _normalize(s)
                 if key in seen_heads:
                     continue
@@ -538,6 +580,80 @@ def _safe_chat(client, sys_prompt, user, fallback, label):
         return fallback
 
 
+def _track_known(known: list[str], md: str):
+    """从已生成章节抽取 ####? 小标题加入 known，供后续章命名一致。"""
+    for m in re.findall(r"####?\s*(.+)", md):
+        name = m.strip().lstrip("（一）（二）（三）").strip()
+        if 2 <= len(name) <= 16:
+            known.append(name)
+
+
+def _split_ends(raw: str) -> tuple[str, str]:
+    """把 build_courseware_ends_prompt 的输出拆成 (overview, summary)。
+
+    以单独成行的 [[OVERVIEW]] / [[SUMMARY]] 分段；模型漏标时退化为整体当 summary、overview 留空。
+    """
+    if not raw:
+        return "", ""
+    i = raw.find("[[OVERVIEW]]")
+    j = raw.find("[[SUMMARY]]")
+    if i >= 0 and j > i:
+        return raw[i + len("[[OVERVIEW]]"):j].strip(), raw[j + len("[[SUMMARY]]"):].strip()
+    if j >= 0:
+        return "", raw[j + len("[[SUMMARY]]"):].strip()
+    return "", raw.strip()
+
+
+def _generate_chapter(course, ch, ci, client, sys_prompt, args, work, known):
+    """生成单章复习资料。
+
+    整章渲染文本 ≤ CHAPTER_SINGLE_CALL_BUDGET 时单次调用生成整章（天然单一总览/小结、
+    统一编号、全局一致隶属）；否则回退到「先大纲后分片」，用大纲统一结构与编号。
+    返回该章 Markdown，并把 ####? 小标题加入 known 供后续章命名一致。
+    """
+    chapter_text = render_chunk_text(ch.records)
+
+    if len(chapter_text) <= CHAPTER_SINGLE_CALL_BUDGET:
+        # 单次整章生成
+        print(f"      - 第{ci}章 [{ch.name}] 整章一次性生成（{len(chapter_text)} 字）...", flush=True)
+        user = build_courseware_chapter_prompt(course, ch.name, chapter_text, known)
+        md = _safe_chat(client, sys_prompt, user,
+                        f"> （第{ci}章 整章生成失败，待重试）", f"第{ci}章 整章生成")
+        _track_known(known, md)
+        _write_work(work, f"10_ch{ci}.md", md)
+        return md
+
+    # 回退：章过大 -> 先大纲、后分片（按大纲统一结构/编号，避免每片自带总览/小结）
+    print(f"      - 第{ci}章 [{ch.name}] 过大（{len(chapter_text)} 字），走大纲引导分片 ...", flush=True)
+    skeleton = _safe_chat(client, sys_prompt,
+                          build_courseware_outline_prompt(course, ch.name, chapter_text),
+                          "", f"第{ci}章 大纲")
+    _write_work(work, f"10_ch{ci}_outline.md", skeleton or "")
+
+    chunks = chunk_records(ch.records, args.max_chars)
+    parts = []
+    for k, ck in enumerate(chunks, 1):
+        if not ck:
+            continue
+        user = build_courseware_gen_prompt(course, ch.name, render_chunk_text(ck), k, len(chunks), known, outline=skeleton)
+        print(f"        片 {k}/{len(chunks)} ...", flush=True)
+        md = _safe_chat(client, sys_prompt, user,
+                        f"> （第{ci}章 片{k} 生成失败，待重试）", f"第{ci}章 片{k}")
+        parts.append(md)
+        _write_work(work, f"10_ch{ci}_c{k}.md", md)
+    body = _merge_chapter_parts(parts)
+
+    # 总览与小结各只一处，在正文装配后统一生成
+    overview, summary = _split_ends(_safe_chat(
+        client, sys_prompt, build_courseware_ends_prompt(course, ch.name, body),
+        "### 本章小结\n- （总览/小结生成失败，待重试）", f"第{ci}章 总览小结"))
+    sections = "\n\n".join(p for p in (overview, body, summary) if p and p.strip())
+    md = _merge_chapter_parts([sections])
+    _track_known(known, md)
+    _write_work(work, f"10_ch{ci}.md", md)
+    return md
+
+
 def phase_courseware(courseware_files, by_file, client, sys_prompt, args, work):
     cw_by_file = {fn: by_file[fn] for fn in courseware_files}
     explicit = [s.strip() for s in (args.chapters.split(",") if args.chapters else []) if s.strip()]
@@ -551,23 +667,7 @@ def phase_courseware(courseware_files, by_file, client, sys_prompt, args, work):
 
     draft, known = {}, []
     for ci, ch in enumerate(chapters, 1):
-        chunks = chunk_records(ch.records, args.max_chars)
-        parts = []
-        for k, ck in enumerate(chunks, 1):
-            if not ck:
-                continue
-            user = build_courseware_gen_prompt(args.course, ch.name, render_chunk_text(ck), k, len(chunks), known)
-            print(f"      - 第{ci}章 [{ch.name}] 片 {k}/{len(chunks)} ...", flush=True)
-            md = _safe_chat(client, sys_prompt, user,
-                            f"> （第{ci}章 片{k} 生成失败，待重试）", f"第{ci}章 片{k}")
-            parts.append(md)
-            _write_work(work, f"10_ch{ci}_c{k}.md", md)
-            for m in re.findall(r"####?\s*(.+)", md):
-                name = m.strip().lstrip("（一）（二）（三）").strip()
-                if 2 <= len(name) <= 16:
-                    known.append(name)
-        draft[ch.name] = _merge_chapter_parts(parts)
-        _write_work(work, f"10_ch{ci}.md", draft[ch.name])
+        draft[ch.name] = _generate_chapter(args.course, ch, ci, client, sys_prompt, args, work, known)
     return chapters, draft
 
 
@@ -576,17 +676,7 @@ def gen_fallback_chapters(records, client, sys_prompt, args, work, course_label)
     chapters = detect_chapters(records)
     draft, known = {}, []
     for ci, ch in enumerate(chapters, 1):
-        chunks = chunk_records(ch.records, args.max_chars)
-        parts = []
-        for k, ck in enumerate(chunks, 1):
-            if not ck:
-                continue
-            user = build_courseware_gen_prompt(args.course, ch.name, render_chunk_text(ck), k, len(chunks), known)
-            md = _safe_chat(client, sys_prompt, user,
-                            f"> （第{ci}章 片{k} 生成失败，待重试）", f"第{ci}章 片{k}")
-            parts.append(md)
-        draft[ch.name] = _merge_chapter_parts(parts)
-        _write_work(work, f"10_ch{ci}.md", draft[ch.name])
+        draft[ch.name] = _generate_chapter(args.course, ch, ci, client, sys_prompt, args, work, known)
     return chapters, draft
 
 
@@ -805,6 +895,7 @@ def run_pipeline(input_dir: Path, out_path: Path, args):
 
     # ---- 聚合 + 渲染 ----
     print("[7] 汇总 + 渲染 ...")
+    chapters = _sort_chapters_by_number(chapters)   # 按章号排序，修文件名字典序导致的 7,9,8 错乱
     chapter_md = [f"{_chapter_heading(i, ch.name)}\n\n{draft.get(ch.name, '')}"
                   for i, ch in enumerate(chapters, 1)]
     all_md = "\n\n".join(chapter_md)
