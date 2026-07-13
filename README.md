@@ -45,6 +45,8 @@ py setup.py
 
 **中断续跑**：每次调用的响应默认缓存到 `work/cache.json`（按 `模型+提示词` 哈希）。生成被中断后，**直接重跑同一命令即可**——已完成的调用自动命中缓存跳过、不重新计费，只重做中断处那次及之后的。换模型或想全量重跑时加 `--no-cache`。
 
+**PDF 输出（默认自动）**：生成 MD 后自动转 PDF，走 xelatex + tcolorbox，例题用与"微积分A_1__期中复习_黄骏斌.pdf"一致的彩色边框盒子（紫框外盒 + 蓝标题条子盒）。不想转 PDF 加 `--no-pdf`，或在 `.env` 设 `REVIEW_NO_PDF=1`。需 LaTeX 宏包，首次用 `tlmgr install ctex tcolorbox fancyhdr listings titlesec tabularx hyperref pdfcol`（一次性）；没装会自动跳过并提示，不影响 MD 产出。也可单独 `py build_pdf.py 复习笔记.md -o 复习笔记.pdf`。
+
 ---
 
 ## 安装与环境配置（推荐：一键向导）

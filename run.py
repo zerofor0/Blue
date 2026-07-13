@@ -86,6 +86,7 @@ def main():
         api_base="", api_key="", model="",
         no_llm=no_llm,
         no_cache=os.getenv("REVIEW_NO_CACHE") == "1",
+        pdf=os.getenv("REVIEW_NO_PDF") != "1",   # 默认自动生成 PDF
     )
     try:
         agent.run(INPUT, out, args)

@@ -35,10 +35,14 @@ def main():
     ap.add_argument("--no-llm", action="store_true", help="Demo 模式，不调用大模型")
     ap.add_argument("--no-cache", action="store_true",
                     help="禁用 LLM 响应缓存（强制全重跑；换模型/改 prompt 后用）")
+    ap.add_argument("--no-pdf", action="store_true",
+                    help="不生成 PDF；默认在产出 MD 后自动转 PDF（需 xelatex + tcolorbox）")
     ap.add_argument("--make-sample", metavar="DIR", help="生成 tiny 样例（课件+笔记）到该目录后退出")
     ap.add_argument("--make-sample-full", metavar="DIR",
                     help="生成 4 类齐全样例（课件/书/笔记/试题）到该目录后退出")
     args = ap.parse_args()
+    # PDF 默认自动生成，除非 --no-pdf 或 .env 设了 REVIEW_NO_PDF=1
+    args.pdf = not (args.no_pdf or os.getenv("REVIEW_NO_PDF") == "1")
 
     if args.make_sample_full:
         make_sample_full(Path(args.make_sample_full))
