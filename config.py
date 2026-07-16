@@ -4,9 +4,27 @@
 不依赖第三方库，手写一个最小 .env 解析器，避免"装包前读不了配置"的鸡生蛋问题。
 """
 import os
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+
+def app_root() -> Path:
+    """程序数据根目录。
+
+    - 普通运行（CLI：agent.py / run.py / setup.py）：本文件所在目录（项目根）。
+    - 打包成 exe（PyInstaller frozen）：exe 所在目录。因为 onefile 模式下 __file__
+      指向每次运行都不同的临时解压目录 _MEIxxxx（且只读），input/、.env、work/ 等
+      可写数据必须落在 exe 旁边才有意义、才能跨次保留。
+
+    所有可写路径（.env / input / output_notes / work）统一以此为准，避免冻结后
+    指向 _MEI 临时目录导致 FileNotFoundError 或配置丢失。
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+ROOT = app_root()
 ENV_FILE = ROOT / ".env"
 EXAMPLE_FILE = ROOT / ".env.example"
 

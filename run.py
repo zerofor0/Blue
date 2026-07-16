@@ -4,7 +4,7 @@
 用法：
   1) 把课件（PPT/PDF/DOCX/图片）复制到同目录的 input 文件夹
   2) 双击 [整理笔记.bat]，或运行 py run.py
-  3) 按提示输入课程名，结果输出到 复习笔记.md
+  3) 按提示输入课程名，结果输出到 output_notes/复习笔记.md
 """
 import os
 import sys
@@ -74,7 +74,8 @@ def main():
         print("[!] 课程名不能为空。"); return
 
     # 4) 运行流水线（复用 agent.run，避免命令行中文参数问题）
-    out = ROOT / "复习笔记.md"
+    #    最终产物（MD + PDF）统一落到 output_notes/ 子文件夹，保持主目录整洁
+    out = ROOT / "output_notes" / "复习笔记.md"
     max_chars = int(os.getenv("REVIEW_MAX_CHARS", "6000"))
     print(f"\n开始整理 -> 输出 {out.name}（单分片上限 {max_chars} 字）...\n")
     import agent

@@ -21,7 +21,8 @@ def main():
     config.load_env()  # 启动时加载 .env（真实环境变量优先）
     ap = argparse.ArgumentParser(description="复习笔记智能助手（多文件分阶段）")
     ap.add_argument("input_dir", nargs="?", help="学习资料所在目录")
-    ap.add_argument("-o", "--output", default="复习笔记.md", help="输出 Markdown 路径")
+    ap.add_argument("-o", "--output", default="output_notes/复习笔记.md",
+                    help="输出 Markdown 路径（默认落 output_notes/ 子文件夹）")
     ap.add_argument("--course", default=os.getenv("REVIEW_COURSE", "未命名课程"),
                     help="课程名称（影响学科自动判定；可用 .env REVIEW_COURSE 设默认）")
     ap.add_argument("--discipline", default=os.getenv("REVIEW_DISCIPLINE", "auto"),

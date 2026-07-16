@@ -1,0 +1,5 @@
+# 复习笔记助手 · GUI 打包额外依赖（CLI 不需要）
+# 用法见 build_exe.bat
+flask>=3.0                # 桌面 GUI 后端
+pywebview>=5.0            # 原生窗口（Win11 走系统 Edge WebView2）
+pyinstaller>=6.0          # 打包成 exe
