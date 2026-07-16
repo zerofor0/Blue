@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-accent="teal">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>复习笔记助手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   复习笔记助手 · 学术静雅风 设计系统
+   ============================================================ */
+:root{
+  --font-serif: "Spectral", "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-sans:  "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* 暖纸 · 浅色 */
+  --bg:        #F6F2EA;
+  --bg-soft:   #EFEADF;
+  --surface:   #FCFAF4;
+  --surface-2: #F3EEE3;
+  --ink:       #211E18;
+  --ink-2:     #5C564B;
+  --ink-3:     #8A8275;
+  --line:      #E4DDD0;
+  --line-2:    #D6CDBD;
+
+  --accent:        #2E5A52;
+  --accent-ink:    #244A43;
+  --accent-soft:   #E2EBE7;
+  --accent-line:   #C4D6D0;
+  --gold:          #9A6A2C;
+  --ok:            #4A7A55;
+  --warn:          #B07A2E;
+
+  --r-sm: 3px; --r: 6px; --r-lg: 10px;
+  --shadow:    0 1px 2px rgba(40,34,24,.04), 0 10px 30px rgba(40,34,24,.05);
+  --shadow-lg: 0 2px 8px rgba(40,34,24,.06), 0 28px 70px rgba(40,34,24,.09);
+  --ease: cubic-bezier(.22,1,.36,1);
+  --dur: 380ms;
+  --maxw: 980px;
+}
+[data-theme="dark"]{
+  --bg:        #191710;
+  --bg-soft:   #14120D;
+  --surface:   #221F18;
+  --surface-2: #2B271F;
+  --ink:       #ECE5D6;
+  --ink-2:     #B3AA98;
+  --ink-3:     #837B6C;
+  --line:      #353029;
+  --line-2:    #423C33;
+
+  --accent:      #6FA89B;
+  --accent-ink:  #9FC6BB;
+  --accent-soft: #1E2D29;
+  --accent-line: #2F443E;
+  --gold:        #C9954A;
+  --ok:          #7FB088;
+  --warn:        #D2A24E;
+
+  --shadow:    0 1px 2px rgba(0,0,0,.30), 0 12px 34px rgba(0,0,0,.36);
+  --shadow-lg: 0 2px 10px rgba(0,0,0,.40), 0 30px 76px rgba(0,0,0,.5);
+}
+[data-accent="indigo"]{
+  --accent:#36507A; --accent-ink:#2A3F62; --accent-soft:#E4E8F0; --accent-line:#C6CFE0;
+}
+[data-theme="dark"][data-accent="indigo"]{
+  --accent:#8EAAD6; --accent-ink:#AEC4E6; --accent-soft:#1E2533; --accent-line:#2C3650;
+}
+[data-accent="ochre"]{
+  --accent:#9A6A2C; --accent-ink:#7E5520; --accent-soft:#F1E6D2; --accent-line:#E0CCA6;
+}
+[data-theme="dark"][data-accent="ochre"]{
+  --accent:#C9954A; --accent-ink:#DCB073; --accent-soft:#2A2317; --accent-line:#3E3220;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font-sans);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:15.5px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+  min-height:100vh;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background:
+    radial-gradient(900px 600px at 12% -8%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 60%),
+    radial-gradient(700px 500px at 110% 10%, color-mix(in srgb, var(--gold) 4%, transparent), transparent 55%);
+}
+button{font-family:inherit;cursor:pointer;color:inherit}
+input,select{font-family:inherit}
+::selection{background:var(--accent-soft);color:var(--accent-ink)}
+
+/* ---------- App bar ---------- */
+.app{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding:30px 28px 96px}
+.appbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:20px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+.wordmark{display:flex;align-items:center;gap:13px}
+.seal{width:38px;height:38px;border-radius:50%;border:1px solid var(--accent-line);background:var(--accent-soft);display:grid;place-items:center;flex:none;transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease)}
+.seal svg{width:19px;height:19px;stroke:var(--accent-ink);fill:none;stroke-width:1.4}
+.wordmark .name{font-family:var(--font-serif);font-size:19px;font-weight:600;letter-spacing:.01em;line-height:1.15}
+.wordmark .sub{font-size:11.5px;color:var(--ink-3);letter-spacing:.18em;text-transform:uppercase;margin-top:2px}
+.bar-right{display:flex;align-items:center;gap:8px}
+.viewswitch{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.viewswitch button{border:0;background:transparent;font-size:12.5px;color:var(--ink-2);padding:6px 13px;border-radius:999px;transition:all var(--dur) var(--ease);font-weight:500}
+.viewswitch button.active{background:var(--accent);color:#FBF8F1}
+[data-theme="dark"] .viewswitch button.active{color:#10140F}
+.icon-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--ink-2);transition:all .24s var(--ease)}
+.icon-btn:hover{border-color:var(--accent-line);color:var(--accent-ink);transform:translateY(-1px)}
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.5}
+
+/* ---------- 通用 ---------- */
+.view{display:none;animation:rise .5s var(--ease) both}
+.view.active{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.eyebrow{font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-ink);font-weight:500;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.eyebrow::after{content:"";flex:0 0 36px;height:1px;background:var(--accent-line)}
+.lede{font-family:var(--font-serif);font-size:clamp(27px,3.6vw,40px);line-height:1.28;font-weight:500;letter-spacing:.005em;margin:0 0 14px}
+.lede em{font-style:italic;color:var(--accent-ink)}
+.section-note{color:var(--ink-2);max-width:60ch;margin:0 0 30px;font-size:15px}
+code.inl{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--surface-2);padding:1px 6px;border-radius:3px;color:var(--ink-2)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow)}
+.pad{padding:30px 32px}
+@media(max-width:640px){.pad{padding:24px 20px}.app{padding:22px 16px 90px}}
+.h2{font-family:var(--font-serif);font-size:21px;font-weight:600;margin:0 0 4px;letter-spacing:.01em}
+.h2-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:22px}
+.h2-row .stepnum{font-family:var(--font-serif);font-size:13px;color:var(--accent-ink)}
+
+/* ---------- 表单 ---------- */
+.field{margin-bottom:20px}
+.field:last-child{margin-bottom:0}
+.label{display:block;font-size:13px;font-weight:500;color:var(--ink);margin-bottom:8px}
+.label .opt{color:var(--ink-3);font-weight:400;margin-left:6px}
+.input,.select{width:100%;padding:11px 13px;font-size:14.5px;color:var(--ink);background:var(--bg);border:1px solid var(--line-2);border-radius:var(--r);transition:border-color .2s, box-shadow .2s, background var(--dur) var(--ease);outline:none}
+.input:focus,.select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.input::placeholder{color:var(--ink-3)}
+.select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px}
+.secret{position:relative}
+.secret .input{padding-right:46px}
+.eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--ink-3);padding:7px}
+.eye svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+
+/* ---------- 按钮 ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 20px;font-size:14.5px;font-weight:500;border-radius:var(--r);border:1px solid transparent;transition:all .24s var(--ease);white-space:nowrap}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6}
+.btn-primary{background:var(--accent);color:#FBF8F1}
+[data-theme="dark"] .btn-primary{color:#10140F}
+.btn-primary:not(:disabled):hover{background:var(--accent-ink);transform:translateY(-1px);box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:transparent;border-color:var(--line-2);color:var(--ink-2)}
+.btn-ghost:hover{border-color:var(--accent-line);color:var(--accent-ink);background:var(--surface)}
+.btn-sm{padding:7px 13px;font-size:13px}
+.btn-block{width:100%}
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:30px;gap:12px}
+
+/* ============================================================
+   SETUP WIZARD
+   ============================================================ */
+.wiz-head{margin-bottom:34px}
+.stepper{display:flex;align-items:flex-start;gap:0;margin:8px 0 6px}
+.stepper .st{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:default;min-width:54px}
+.stepper .st .dot{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-serif);font-size:15px;font-weight:600;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);transition:all var(--dur) var(--ease);position:relative;z-index:2}
+.stepper .st.done .dot{background:var(--accent);border-color:var(--accent);color:#FBF8F1}
+[data-theme="dark"] .stepper .st.done .dot{color:#10140F}
+.stepper .st.done .dot svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2}
+.stepper .st.active .dot{border-color:var(--accent);color:var(--accent-ink);box-shadow:0 0 0 4px var(--accent-soft)}
+.stepper .st .nm{font-size:11.5px;color:var(--ink-3);margin-top:9px;letter-spacing:.02em;transition:color .24s}
+.stepper .st.active .nm,.stepper .st.done .nm{color:var(--ink)}
+.stepper .conn{position:absolute;top:17px;left:50%;width:100%;height:1px;background:var(--line-2);z-index:1}
+.stepper .st:last-child .conn{display:none}
+.stepper .st.done .conn{background:var(--accent-line)}
+
+.checklist{display:flex;flex-direction:column;gap:10px}
+.checkrow{display:flex;align-items:center;gap:13px;padding:13px 15px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);transition:border-color .25s,background .25s}
+.checkrow .ci{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none}
+.checkrow .ci svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.4}
+.checkrow.ok .ci{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.checkrow.warn .ci{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.checkrow.wait .ci{background:var(--surface-2);color:var(--ink-3)}
+.checkrow .ct{flex:1;min-width:0}
+.checkrow .ct b{font-weight:500;font-size:14px;display:block}
+.checkrow .ct small{color:var(--ink-3);font-size:12px}
+.checkrow .cmeta{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.spin{width:15px;height:15px;border:2px solid var(--line-2);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.provs{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+@media(max-width:640px){.provs{grid-template-columns:repeat(2,1fr)}}
+.prov{text-align:left;padding:13px 14px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface);transition:all .22s var(--ease);position:relative}
+.prov:hover{border-color:var(--accent-line);transform:translateY(-1px)}
+.prov.selected{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
+.prov .pn{font-weight:500;font-size:14px}
+.prov .pm{font-size:11.5px;color:var(--ink-3);margin-top:3px;letter-spacing:.01em}
+.prov .tick{position:absolute;top:11px;right:11px;width:15px;height:15px;color:var(--accent-ink);opacity:0;transition:opacity .2s}
+.prov.selected .tick{opacity:1}
+.prov .tick svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2}
+
+.testbox{margin-top:8px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg);display:flex;align-items:center;gap:12px;min-height:54px;transition:border-color .25s}
+.testbox .tt{font-size:13.5px}
+.testbox .tt small{display:block;color:var(--ink-3);font-size:12px;margin-top:2px}
+.testbox.ok{border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.testbox.fail{border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.testbox.fail .tt{color:var(--warn)}
+
+.opt-toggle{display:flex;align-items:center;gap:13px;padding:15px 0;border-top:1px solid var(--line)}
+.opt-toggle:first-child{border-top:0}
+.opt-toggle .ot-txt{flex:1}
+.opt-toggle .ot-txt b{font-weight:500;font-size:14px;display:block}
+.opt-toggle .ot-txt small{color:var(--ink-3);font-size:12.5px}
+.switch{position:relative;width:42px;height:24px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch .track{position:absolute;inset:0;background:var(--line-2);border-radius:999px;transition:background .24s var(--ease)}
+.switch .knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .24s var(--ease)}
+.switch input:checked + .track{background:var(--accent)}
+.switch input:checked + .track .knob{transform:translateX(18px)}
+
+/* ============================================================
+   GENERATE FLOW
+   ============================================================ */
+.phases{display:flex;align-items:center;gap:14px;margin-bottom:34px;flex-wrap:wrap}
+.phase{display:flex;align-items:center;gap:9px;font-family:var(--font-serif);font-size:14.5px;color:var(--ink-3);transition:color .3s}
+.phase .pn{width:26px;height:26px;border-radius:50%;border:1px solid var(--line-2);display:grid;place-items:center;font-size:13px;background:var(--surface);transition:all .3s var(--ease)}
+.phase.reached{color:var(--ink)}
+.phase.reached .pn{border-color:var(--accent-line);color:var(--accent-ink);background:var(--accent-soft)}
+.phase .arr{color:var(--line-2);font-size:13px}
+@media(max-width:600px){.phase .arr{display:none}}
+
+.drop{border:1.5px dashed var(--line-2);border-radius:var(--r-lg);padding:42px 24px;text-align:center;background:var(--bg);transition:all .26s var(--ease);cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop .di{width:42px;height:42px;margin:0 auto 14px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;color:var(--accent-ink);transition:transform .3s var(--ease)}
+.drop:hover .di,.drop.over .di{transform:translateY(-3px) scale(1.05)}
+.drop .di svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.4}
+.drop .dt{font-family:var(--font-serif);font-size:17px;font-weight:500;margin-bottom:5px}
+.drop .ds{font-size:13px;color:var(--ink-3)}
+.drop .browse{color:var(--accent-ink);font-weight:500;text-decoration:underline;text-underline-offset:3px}
+
+.filelist{margin-top:18px;display:flex;flex-direction:column;gap:9px}
+.fileitem{display:flex;align-items:center;gap:13px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);animation:rise .35s var(--ease) both}
+.fileicon{width:30px;height:36px;border-radius:3px;flex:none;position:relative;display:grid;place-items:center;font-size:9.5px;font-weight:600;letter-spacing:.04em;color:#FBF8F1;overflow:hidden}
+.fileicon::after{content:"";position:absolute;top:0;right:0;border:5px solid transparent;border-top-color:var(--surface);border-right-color:var(--surface)}
+.fileitem .fn{flex:1;min-width:0;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fileitem .fm{font-size:11.5px;color:var(--ink-3);letter-spacing:.02em;white-space:nowrap}
+.file-remove{background:none;border:0;color:var(--ink-3);padding:6px;border-radius:50%;transition:all .2s}
+.file-remove:hover{color:var(--warn);background:var(--surface-2)}
+.file-remove svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+.fileitem.excluded{opacity:.5}
+.fileitem.excluded .fn{text-decoration:line-through;text-decoration-color:var(--ink-3)}
+.ex-tag{font-size:11px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);padding:1px 7px;border-radius:999px;margin-right:8px;letter-spacing:.02em;white-space:nowrap}
+.file-toggle{background:none;border:0;color:var(--ink-3);padding:6px;border-radius:50%;transition:all .2s;cursor:pointer}
+.file-toggle:hover{color:var(--accent-ink);background:var(--surface-2)}
+.file-toggle svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+
+.collapse{margin-top:16px;border-top:1px solid var(--line)}
+.coll-head{width:100%;background:none;border:0;display:flex;align-items:center;justify-content:space-between;padding:15px 2px;font-size:13.5px;color:var(--ink-2);font-weight:500}
+.coll-head:hover{color:var(--accent-ink)}
+.coll-head .chev{transition:transform .3s var(--ease)}
+.coll-head .chev svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+.coll-head.open .chev{transform:rotate(180deg)}
+.coll-body{max-height:0;overflow:hidden;transition:max-height .4s var(--ease)}
+.coll-body.open{max-height:520px}
+.coll-inner{padding:6px 2px 16px}
+
+.gen-hero{margin-top:30px;display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 4px}
+.btn-gen{padding:15px 40px;font-size:15.5px;font-family:var(--font-serif);font-weight:600;border-radius:999px;letter-spacing:.04em}
+.gen-hint{margin-top:13px;font-size:12.5px;color:var(--ink-3);display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
+.gen-hint .dot{width:3px;height:3px;border-radius:50%;background:var(--ink-3)}
+
+.pipeline{margin-top:26px;padding-top:30px;border-top:1px solid var(--line)}
+.stages{display:flex;flex-direction:column;gap:0}
+.stage{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--line);position:relative;animation:stageIn .42s var(--ease) both;animation-delay:calc(var(--i,0)*55ms)}
+@keyframes stageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.stage:last-child{border-bottom:0}
+.stage .sicon{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);transition:all .35s var(--ease);font-family:var(--font-serif);font-size:13px;font-weight:600}
+.stage.run .sicon{border-color:var(--accent-line);color:var(--accent-ink);background:var(--accent-soft)}
+.stage.done .sicon{background:var(--accent);border-color:var(--accent);color:#FBF8F1}
+[data-theme="dark"] .stage.done .sicon{color:#10140F}
+.stage.done .sicon svg,.stage.fail .sicon svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4}
+.stage.fail .sicon{border-color:var(--warn);color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.stage .sbody{flex:1;min-width:0}
+.stage .stop{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:5px}
+.stage .sname{font-family:var(--font-serif);font-size:15.5px;font-weight:600;color:var(--ink);transition:color .3s}
+.stage.wait .sname{color:var(--ink-2)}
+.stage .sdesc{font-size:12.5px;color:var(--ink-3);margin-bottom:8px}
+.stage .smeta{font-size:11.5px;color:var(--accent-ink);font-variant-numeric:tabular-nums;letter-spacing:.02em;opacity:0;transition:opacity .3s}
+.stage.run .smeta,.stage.done .smeta,.stage.fail .smeta{opacity:1}
+.sbar{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.sbar .fill{height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .5s var(--ease)}
+.stage.run .sbar .fill{width:100%;background:linear-gradient(90deg,var(--accent),var(--accent-ink));background-size:200% 100%;animation:flow 1.4s linear infinite}
+.stage.done .sbar .fill{width:100%;animation:none;background:var(--accent)}
+.stage.fail .sbar .fill{width:100%;background:var(--warn)}
+.stage.skip{opacity:.55}
+.stage.skip .sicon{border-color:var(--line-2);color:var(--ink-3);background:var(--surface)}
+.stage.skip .sname{color:var(--ink-3)}
+.stage.skip .sbar .fill{width:100%;background:var(--line-2)}
+.stage.skip .sdesc::after{content:" · 无此类资料，已跳过";color:var(--ink-3)}
+@keyframes flow{to{background-position:200% 0}}
+.slog{font-size:12px;color:var(--ink-2);margin-top:8px;font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.01em;opacity:0;transition:opacity .3s;word-break:break-all}
+.stage.run .slog,.stage.done .slog,.stage.fail .slog{opacity:1}
+
+.result{margin-top:34px;animation:rise .55s var(--ease) both}
+.result-head{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+.result-head .rc{width:40px;height:40px;border-radius:50%;background:var(--accent);display:grid;place-items:center;color:#FBF8F1;flex:none}
+[data-theme="dark"] .result-head .rc{color:#10140F}
+.result-head .rc svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2.2}
+.result-head h3{font-family:var(--font-serif);font-size:20px;font-weight:600;margin:0}
+.result-head p{margin:2px 0 0;font-size:13px;color:var(--ink-3)}
+.export-row{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 24px}
+
+.preview{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow)}
+.preview-bar{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.preview-bar .pdot{width:9px;height:9px;border-radius:50%;border:1px solid var(--line-2)}
+.preview-bar .pname{font-size:12.5px;color:var(--ink-2);font-family:ui-monospace,Menlo,monospace}
+.preview-body{padding:30px 34px;max-height:520px;overflow:auto;font-family:var(--font-serif)}
+@media(max-width:600px){.preview-body{padding:22px 18px}}
+.preview-body h1{font-size:23px;font-weight:600;margin:0 0 4px;letter-spacing:.01em}
+.preview-body .pmeta{font-size:12px;color:var(--ink-3);margin-bottom:22px;font-family:var(--font-sans);letter-spacing:.04em}
+.preview-body h2{font-size:17px;font-weight:600;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.preview-body h3{font-size:15px;font-weight:600;margin:20px 0 8px;color:var(--accent-ink)}
+.preview-body p{margin:0 0 11px;font-size:14.5px;line-height:1.85;color:var(--ink)}
+.preview-body .src{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink-3);background:var(--surface-2);padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:1px}
+.preview-body ul{margin:6px 0 12px;padding-left:20px}
+.preview-body li{font-size:14px;margin-bottom:5px;line-height:1.7}
+.preview-body .formula{font-family:var(--font-serif);font-style:italic;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:11px 15px;margin:10px 0;text-align:center;font-size:15px}
+.mk{display:inline-block;font-size:11px;font-weight:600;font-family:var(--font-sans);padding:1px 7px;border-radius:3px;margin-right:5px;vertical-align:1px;letter-spacing:.03em}
+.mk-def{background:var(--accent-soft);color:var(--accent-ink)}
+.mk-hot{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.mk-key{background:color-mix(in srgb,var(--gold) 12%,transparent);color:var(--gold)}
+.mk-err{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.mk-step{background:var(--surface-2);color:var(--ink-2)}
+
+/* ============================================================
+   TWEAKS
+   ============================================================ */
+.tweaks{position:fixed;right:22px;bottom:22px;z-index:50}
+.tweaks-fab{width:50px;height:50px;border-radius:50%;background:var(--accent);color:#FBF8F1;border:0;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 40%,transparent);display:grid;place-items:center;transition:transform .3s var(--ease)}
+[data-theme="dark"] .tweaks-fab{color:#10140F}
+.tweaks-fab:hover{transform:rotate(60deg) scale(1.06)}
+.tweaks-panel{position:absolute;right:0;bottom:64px;width:268px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:18px;transform:translateY(12px) scale(.96);transform-origin:bottom right;opacity:0;pointer-events:none;transition:all .3s var(--ease)}
+.tweaks-panel.open{transform:none;opacity:1;pointer-events:auto}
+.tweaks-panel .ttl{font-family:var(--font-serif);font-size:15px;font-weight:600;margin-bottom:4px}
+.tweaks-panel .tsub{font-size:11.5px;color:var(--ink-3);margin-bottom:16px;letter-spacing:.04em}
+.tk-group{margin-bottom:15px}
+.tk-label{font-size:11px;color:var(--ink-3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.seg{display:flex;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:3px}
+.seg button{flex:1;border:0;background:transparent;font-size:12px;color:var(--ink-2);padding:6px 4px;border-radius:4px;transition:all .2s;font-weight:500}
+.seg button.active{background:var(--accent);color:#FBF8F1}
+[data-theme="dark"] .seg button.active{color:#10140F}
+.swatches{display:flex;gap:8px}
+.swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;transition:transform .2s}
+.swatch:hover{transform:scale(1.1)}
+.swatch.active{border-color:var(--ink)}
+.swatch.teal{background:#2E5A52}.swatch.indigo{background:#36507A}.swatch.ochre{background:#9A6A2C}
+[data-theme="dark"] .swatch.teal{background:#6FA89B}[data-theme="dark"] .swatch.indigo{background:#8EAAD6}[data-theme="dark"] .swatch.ochre{background:#C9954A}
+
+.toast{position:fixed;left:50%;bottom:32px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:11px 20px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:all .35s var(--ease);z-index:100;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:9px;max-width:90vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex:none}
+
+/* ---- 打磨：状态 / 校验 ---- */
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+.btn-primary:not(:disabled):active{transform:translateY(0) scale(.985)}
+.btn-ghost:active,.btn-sm:active{transform:scale(.97)}
+.icon-btn:active{transform:scale(.92)}
+.prov:active{transform:scale(.99)}
+.tweaks-fab:active{transform:rotate(60deg) scale(.96)}
+.input.invalid{border-color:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 16%,transparent)}
+.field-err{font-size:12px;color:var(--warn);margin-top:6px;display:none;letter-spacing:.01em}
+.field-err.show{display:block}
+.empty-hint{text-align:center;font-size:13px;color:var(--ink-3);padding:16px;border:1px dashed var(--line);border-radius:var(--r)}
+.badge-pkg{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);background:var(--surface);border:1px solid var(--line);padding:4px 12px;border-radius:999px;display:none}
+.badge-pkg.show{display:block}
+
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="badge-pkg" id="badgePkg">演示模式 · 后端为模拟数据</div>
+
+<div class="app">
+  <!-- ===================== APP BAR ===================== -->
+  <header class="appbar">
+    <div class="wordmark">
+      <span class="seal" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4"/><path d="M8 13h7M8 16h5M8 10h4"/></svg>
+      </span>
+      <div>
+        <div class="name">复习笔记助手</div>
+        <div class="sub">Review Notes Studio</div>
+      </div>
+    </div>
+    <div class="bar-right">
+      <div class="viewswitch" id="viewswitch">
+        <button data-v="setup">首次配置</button>
+        <button data-v="generate">日常使用</button>
+      </div>
+      <button class="icon-btn" id="themeBtn" title="切换主题" aria-label="切换主题">
+        <svg id="themeIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== SETUP VIEW ===================== -->
+  <section class="view active" id="view-setup">
+    <div class="wiz-head">
+      <div class="eyebrow">首次使用 · 一次性配置</div>
+      <h1 class="lede">配好大模型，<em>三分钟</em>即可开始整理。</h1>
+      <p class="section-note">对应 <code class="inl">py setup.py</code>：检查环境、安装依赖、填写 API 密钥并测试连接。配好后这些步骤不再出现，下次打开直接进入笔记整理。</p>
+    </div>
+
+    <div class="card pad">
+      <div class="stepper" id="stepper">
+        <div class="st active" data-i="0"><div class="dot">1</div><div class="nm">环境</div><div class="conn"></div></div>
+        <div class="st" data-i="1"><div class="dot">2</div><div class="nm">依赖</div><div class="conn"></div></div>
+        <div class="st" data-i="2"><div class="dot">3</div><div class="nm">模型</div><div class="conn"></div></div>
+        <div class="st" data-i="3"><div class="dot">4</div><div class="nm">连接</div><div class="conn"></div></div>
+        <div class="st" data-i="4"><div class="dot">5</div><div class="nm">完成</div></div>
+      </div>
+
+      <div style="margin-top:34px">
+        <!-- STEP 1: 环境 -->
+        <div class="step-panel" data-step="0">
+          <div class="h2-row"><h2 class="h2">环境检查</h2><span class="stepnum">第 1 / 5 步</span></div>
+          <div class="checklist">
+            <div class="checkrow ok" id="chkPython"><span class="ci"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><div class="ct"><b id="pyName">Python 3.11.7</b><small id="pyPath">路径 · C:\Python311\python.exe</small></div><span class="cmeta">满足 ≥ 3.9</span></div>
+            <div class="checkrow ok" id="chkDeps"><span class="ci"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><div class="ct"><b>提取与 OCR 依赖</b><small>openai · python-pptx · python-docx · PyMuPDF · RapidOCR</small></div><span class="cmeta" id="depsMeta">就绪</span></div>
+            <div class="checkrow ok" id="chkLatex"><span class="ci"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><div class="ct"><b>xelatex（PDF 导出）</b><small id="latexDesc">已检测到 TinyTeX · 例题彩色边框可正常渲染</small></div><button class="btn btn-ghost btn-sm" id="latexBtn" hidden>安装 TinyTeX</button></div>
+          </div>
+        </div>
+
+        <!-- STEP 2: 依赖 -->
+        <div class="step-panel" data-step="1" hidden>
+          <div class="h2-row"><h2 class="h2">安装依赖</h2><span class="stepnum">第 2 / 5 步</span></div>
+          <div class="checklist" id="depList">
+            <div class="checkrow" data-dep="0"><span class="ci"><span class="spin"></span></span><div class="ct"><b>openai · python-pptx · python-docx</b><small>核心提取与大模型调用</small></div><span class="cmeta">安装中…</span></div>
+            <div class="checkrow wait" data-dep="1"><span class="ci"></span><div class="ct"><b>pymupdf · rapidocr-onnxruntime</b><small>PDF 解析与图片 OCR</small></div><span class="cmeta">等待</span></div>
+            <div class="checkrow wait" data-dep="2"><span class="ci"></span><div class="ct"><b>其余依赖</b><small>读取自 requirements.txt</small></div><span class="cmeta">等待</span></div>
+          </div>
+          <p style="font-size:12.5px;color:var(--ink-3);margin-top:16px">演示模式为模拟；真实环境执行 <code class="inl">pip install -r requirements.txt</code>（打包成 exe 后依赖随程序附带，此步自动跳过）。</p>
+        </div>
+
+        <!-- STEP 3: 模型 -->
+        <div class="step-panel" data-step="2" hidden>
+          <div class="h2-row"><h2 class="h2">配置大模型</h2><span class="stepnum">第 3 / 5 步</span></div>
+          <p style="font-size:13.5px;color:var(--ink-2);margin:0 0 16px">选择服务商（仅预填地址，密钥仍由你输入）。系统采用 OpenAI 兼容接口。</p>
+          <div class="provs" id="provs">
+            <button class="prov selected" data-k="1"><div class="pn">智谱 GLM</div><div class="pm">glm-4-plus</div><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span></button>
+            <button class="prov" data-k="2"><div class="pn">DeepSeek</div><div class="pm">deepseek-chat</div><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span></button>
+            <button class="prov" data-k="3"><div class="pn">通义千问</div><div class="pm">qwen-plus</div><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span></button>
+            <button class="prov" data-k="4"><div class="pn">Moonshot Kimi</div><div class="pm">moonshot-v1-8k</div><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span></button>
+            <button class="prov" data-k="5"><div class="pn">OpenAI</div><div class="pm">gpt-4o-mini</div><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span></button>
+            <button class="prov" data-k="6"><div class="pn">自定义</div><div class="pm">手动填写 base_url</div><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span></button>
+          </div>
+          <div style="margin-top:22px">
+            <div class="grid2">
+              <div class="field"><label class="label">接口地址 base_url</label><input class="input" id="apiBase" value="https://open.bigmodel.cn/api/paas/v4/"></div>
+              <div class="field"><label class="label">模型名</label><input class="input" id="apiModel" value="glm-4-plus"></div>
+            </div>
+            <div class="field">
+              <label class="label">API Key <span class="opt">（输入不回显，仅存入本地 .env）</span></label>
+              <div class="secret">
+                <input class="input" id="apiKey" type="password" placeholder="粘贴你的 API Key" value="sk-demo-7a3f9c2e1b8d4a6f0c5e2b9d7a4f1c8e">
+                <button class="eye" id="eyeKey" type="button" aria-label="显示密钥"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
+              <div class="field-err" id="keyErr">API Key 至少 8 位（演示时清空可触发认证失败）</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 4: 连接 -->
+        <div class="step-panel" data-step="3" hidden>
+          <div class="h2-row"><h2 class="h2">测试连接</h2><span class="stepnum">第 4 / 5 步</span></div>
+          <p style="font-size:13.5px;color:var(--ink-2);margin:0 0 16px">向模型发送一句最小请求，确认密钥与接口可用。</p>
+          <button class="btn btn-primary" id="testBtn"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>开始测试</button>
+          <div class="testbox" id="testBox"><span class="spin" id="testSpin" style="display:none"></span><span class="tt" id="testText">尚未测试</span></div>
+        </div>
+
+        <!-- STEP 5: 完成 -->
+        <div class="step-panel" data-step="4" hidden>
+          <div class="h2-row"><h2 class="h2">配置完成</h2><span class="stepnum">第 5 / 5 步</span></div>
+          <div class="checklist">
+            <div class="checkrow ok"><span class="ci"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><div class="ct"><b>配置已写入 .env</b><small>密钥仅保存在本地，已被 .gitignore 忽略</small></div></div>
+            <div class="checkrow ok"><span class="ci"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span><div class="ct"><b>大模型连接正常</b><small id="cfgModel">glm-4-plus · 智谱 GLM</small></div></div>
+          </div>
+          <div style="margin-top:18px;padding:16px;background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:var(--r)">
+            <div style="font-family:var(--font-serif);font-size:15px;font-weight:600;color:var(--accent-ink);margin-bottom:4px">以后只需两步</div>
+            <div style="font-size:13.5px;color:var(--ink-2)">① 把课件复制进 <code class="inl">input/</code> 文件夹 &nbsp;·&nbsp; ② 打开本程序开始整理</div>
+          </div>
+          <button class="btn btn-primary btn-block" id="finishBtn" style="margin-top:22px">进入笔记整理 <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+
+      <div class="nav-row" id="wizNav">
+        <button class="btn btn-ghost btn-sm" id="backBtn" disabled>← 上一步</button>
+        <span style="font-size:12px;color:var(--ink-3)" id="wizHint">配置完成后，下次打开将直接进入笔记整理</span>
+        <button class="btn btn-primary btn-sm" id="nextBtn">下一步 →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== GENERATE VIEW ===================== -->
+  <section class="view" id="view-generate">
+    <div class="wiz-head">
+      <div class="eyebrow">日常使用 · 整理复习笔记</div>
+      <h1 class="lede">把课件，变成<em>简洁而全面</em>的笔记。</h1>
+      <p class="section-note">把 PPT / PDF / Word / 图片放进 input，填好课程名，点击生成——5 阶段流水线自动产出考试导向的复习笔记。</p>
+    </div>
+
+    <div class="card pad" id="genCard">
+      <div class="phases" id="phases">
+        <div class="phase reached" data-p="0"><span class="pn">1</span><span>课件</span></div>
+        <span class="arr">›</span>
+        <div class="phase reached" data-p="1"><span class="pn">2</span><span>课程</span></div>
+        <span class="arr">›</span>
+        <div class="phase" data-p="2"><span class="pn">3</span><span>生成</span></div>
+      </div>
+
+      <div id="phase-files">
+        <div class="h2-row"><h2 class="h2">学习资料</h2><span class="stepnum">① 课件</span></div>
+        <div class="drop" id="drop">
+          <div class="di"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/></svg></div>
+          <div class="dt">把课件拖到这里</div>
+          <div class="ds">支持 PPT · PDF · Word · 图片</div>
+        </div>
+        <div class="filelist" id="filelist"></div>
+      </div>
+
+      <div id="phase-course" style="margin-top:30px">
+        <div class="h2-row"><h2 class="h2">课程信息</h2><span class="stepnum">② 课程</span></div>
+        <div class="grid2">
+          <div class="field"><label class="label">课程名称 <span class="opt">（影响学科自动判定）</span></label><input class="input" id="courseName" value="宏观经济学" placeholder="如：高等数学 A"></div>
+          <div class="field"><label class="label">学科类型</label>
+            <select class="select" id="discipline">
+              <option value="auto">自动推断</option>
+              <option value="business" selected>经管类</option>
+              <option value="science">理工类</option>
+              <option value="cs">计算机</option>
+              <option value="arts">人文社科</option>
+              <option value="general">通用</option>
+            </select>
+          </div>
+        </div>
+        <div class="collapse">
+          <button class="coll-head" id="advHead"><span>高级选项（章节覆盖 · 分片上限 · PDF · 缓存 · Demo）</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span></button>
+          <div class="coll-body" id="advBody"><div class="coll-inner">
+            <div class="field"><label class="label">显式章节列表 <span class="opt">（逗号分隔，覆盖自动检测）</span></label><input class="input" id="chapters" placeholder="第1章 A, 第2章 B（留空则自动）"></div>
+            <div class="grid2">
+              <div class="field"><label class="label">回退分片单片上限</label><input class="input" id="maxChars" type="number" value="6000"></div>
+              <div class="field"><label class="label">整章生成预算（字）</label><input class="input" type="number" value="50000" disabled></div>
+            </div>
+            <div class="opt-toggle"><div class="ot-txt"><b>生成 PDF</b><small>用 xelatex + tcolorbox 渲染彩色例题盒（需 LaTeX）</small></div><label class="switch"><input type="checkbox" id="pdfToggle" checked><span class="track"><span class="knob"></span></span></label></div>
+            <div class="opt-toggle"><div class="ot-txt"><b>启用响应缓存</b><small>中断续跑：重跑自动跳过已完成调用，不重复计费</small></div><label class="switch"><input type="checkbox" id="cacheToggle" checked><span class="track"><span class="knob"></span></span></label></div>
+            <div class="opt-toggle"><div class="ot-txt"><b>Demo 模式（不调用大模型）</b><small>离线测试流程，输出占位排版</small></div><label class="switch"><input type="checkbox" id="demoToggle"><span class="track"><span class="knob"></span></span></label></div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="gen-hero" id="genHero">
+        <button class="btn btn-primary btn-gen" id="genBtn">生 成 复 习 笔 记</button>
+        <div class="gen-hint"><span id="fileCountHint">6 个文件待整理</span><span class="dot"></span><span>默认整章一次生成</span><span class="dot"></span><span>自动 PDF</span></div>
+      </div>
+
+      <div class="pipeline" id="pipeline" hidden>
+        <div class="h2-row"><h2 class="h2">生成进度</h2><span class="stepnum" id="genElapsed">已用 0.0s</span></div>
+        <div class="stages" id="stages"></div>
+      </div>
+
+      <div class="result" id="result" hidden>
+        <div class="result-head">
+          <span class="rc"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span>
+          <div><h3>复习笔记已生成</h3><p id="resultMeta">宏观经济学 · 5 章 · 用时 18.4s</p></div>
+        </div>
+        <div class="export-row">
+          <button class="btn btn-primary btn-sm" data-export="md"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 21h16"/></svg>导出 Markdown</button>
+          <button class="btn btn-ghost btn-sm" data-export="pdf"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/></svg>导出 PDF</button>
+          <button class="btn btn-ghost btn-sm" data-export="open"><svg viewBox="0 0 24 24"><path d="M5 19c0-3 3-5 7-5s7 2 7 5"/><circle cx="12" cy="8" r="3"/></svg>打开输出目录</button>
+          <button class="btn btn-ghost btn-sm" id="resetGen"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>再整理一份</button>
+        </div>
+        <div class="preview">
+          <div class="preview-bar"><span class="pdot"></span><span class="pdot"></span><span class="pdot"></span><span class="pname" style="margin-left:6px">复习笔记.md &nbsp;·&nbsp; output_notes/</span></div>
+          <div class="preview-body" id="notePreview">
+            <h1>《宏观经济学》复习笔记</h1>
+            <div class="pmeta">经管类 · 5 章 · 来源 6 个文件 · 86 页</div>
+            <h2>一、考试范围</h2>
+            <ul><li>题型：选择题（30 分）· 计算题（40 分）· 论述题（30 分）</li><li>重点章节：国民收入核算、总需求与总供给、IS-LM 模型</li></ul>
+            <h2>二、课程知识框架</h2>
+            <ul><li>第 1 章　国民收入核算</li><li>第 2 章　总需求与总供给</li><li>第 3 章　IS-LM 模型</li></ul>
+            <h2>三、各章详解</h2>
+            <h3>第 1 章　国民收入核算</h3>
+            <p><span class="mk mk-def">定义</span>GDP 是一定时期内一国境内生产的所有最终产品和服务的市场价值总和。<span class="src">宏观经济学.pptx P1</span></p>
+            <p><b>支出法：</b></p>
+            <div class="formula">GDP = C + I + G + NX</div>
+            <p><span class="mk mk-hot">高频</span>名义 GDP 与实际 GDP 的区别——以基期价格计算剔除了价格变动影响。<span class="src">宏观经济学.pptx P1 备注</span></p>
+            <p><span class="mk mk-err">易错</span>二手交易、中间产品不计入 GDP，避免重复计算。</p>
+            <p><span class="mk mk-step">解题步骤</span>① 区分最终 / 中间产品 → ② 按市场价值加总 → ③ 注意年度口径。</p>
+            <h3>第 2 章　总需求与总供给</h3>
+            <p><span class="mk mk-key">重点</span>财政政策与货币政策会使 AD 曲线移动，是论述题高频考点。<span class="src">宏观经济学笔记.docx P1</span></p>
+            <p>总需求曲线反映价格水平与总需求量的反向关系；收入增加使 AD 右移，均衡价格与数量同升。</p>
+            <h3>第 3 章　IS-LM 模型</h3>
+            <p>IS 曲线表示产品市场均衡，LM 曲线表示货币市场均衡；二者交点决定均衡利率与国民收入。</p>
+            <p style="color:var(--ink-3);font-size:13px;border-top:1px solid var(--line);margin-top:22px;padding-top:14px;font-family:var(--font-sans)">▲ 以上为示例预览。真实生成会包含完整 5 章、试题索引与代表题。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ===================== TWEAKS ===================== -->
+<div class="tweaks">
+  <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg></button>
+  <div class="tweaks-panel" id="tweaksPanel">
+    <div class="ttl">Tweaks</div>
+    <div class="tsub">实时调整参数 · 预览不同方向</div>
+    <div class="tk-group"><div class="tk-label">视图</div><div class="seg" id="segView"><button data-v="setup">首次配置</button><button data-v="generate">日常使用</button></div></div>
+    <div class="tk-group"><div class="tk-label">强调色</div><div class="swatches" id="swatches"><button class="swatch teal active" data-a="teal" aria-label="墨青"></button><button class="swatch indigo" data-a="indigo" aria-label="靛蓝"></button><button class="swatch ochre" data-a="ochre" aria-label="赭石"></button></div></div>
+    <div class="tk-group"><div class="tk-label">生成演示速度</div><div class="seg" id="segSpeed"><button data-s="fast">极速</button><button data-s="real" class="active">真实</button></div></div>
+    <button class="btn btn-ghost btn-sm btn-block" id="resetSetup" style="margin-top:4px">重置「已完成配置」状态</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg><span id="toastText"></span></div>
+
+<script>
+/* ============================================================
+   复习笔记助手 GUI · 前端逻辑
+   双后端：file: 协议 = 演示(mock)；Flask 托管 = 真实(real)
+   ============================================================ */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const html = document.documentElement;
+const IS_PACKAGED = location.protocol !== 'file:';   // Flask 托管时为 true
+const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>';
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+let toastTimer;
+function toast(msg){ $('#toastText').textContent=msg; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),2200); }
+
+/* ---------- 常量 ---------- */
+const PROVIDERS={
+  '1':['智谱 GLM','https://open.bigmodel.cn/api/paas/v4/','glm-4-plus'],
+  '2':['DeepSeek','https://api.deepseek.com','deepseek-chat'],
+  '3':['通义千问','https://dashscope.aliyuncs.com/compatible-mode/v1','qwen-plus'],
+  '4':['Moonshot Kimi','https://api.moonshot.cn/v1','moonshot-v1-8k'],
+  '5':['OpenAI','https://api.openai.com/v1','gpt-4o-mini'],
+  '6':['自定义','',''],
+};
+const STAGES=[
+  {name:'分类课件',desc:'识别课件 / 书籍 / 笔记 / 试题，自动归类'},
+  {name:'课件建骨',desc:'逐页提取文字 · 章节归并 · 去重溯源'},
+  {name:'书 / 笔记精修',desc:'注入学科指令 · 整章一次生成'},
+  {name:'试题校准',desc:'真题归章 · 标注高频考点与分值'},
+  {name:'补例题',desc:'为知识点补充代表性例题（含来源页码）'},
+  {name:'聚合渲染',desc:'生成 Markdown · 编译 PDF'},
+];
+const MOCK_FILES=[
+  {n:'第1章 国民收入核算.pptx',t:'pptx',p:24},
+  {n:'第2章 总需求与总供给.pptx',t:'pptx',p:31},
+  {n:'宏观经济学笔记.docx',t:'docx',p:18},
+  {n:'西方经济学（教材）.pdf',t:'pdf',p:9},
+  {n:'期末往年真题.docx',t:'docx',p:6},
+  {n:'课件截图.png',t:'img',p:3},
+];
+const MOCK_LOGS=[
+  '✓ 检测 6 个文件 → 2 课件 · 2 书/笔记 · 1 试题 · 1 图片',
+  '✓ 提取 86 页，归并为 5 章，去重 23 处',
+  '✓ 经管类学科指令已注入，5 章均整章生成',
+  '✓ 12 道真题已归入对应章节',
+  '✓ 补充 7 道例题，全部溯源到原文件',
+  '✓ 复习笔记.md 已生成 · PDF 编译完成',
+];
+
+/* ============================================================
+   后端抽象
+   ============================================================ */
+const mockApi={
+  async state(){ return {first_run:localStorage.getItem('rn_setup_complete')!=='1',
+    python_version:'3.11.7',python_path:'C:\\Python311\\python.exe',
+    deps_ok:true,latex_ok:true,providers:PROVIDERS,
+    config:{base:'https://open.bigmodel.cn/api/paas/v4/',model:'glm-4-plus',has_key:true}}; },
+  async listFiles(){ return MOCK_FILES.map(f=>({name:f.n,type:f.t,pages:f.p,size_kb:f.p*14})); },
+  async saveConfig(){ return {ok:true}; },
+  async testConnection(cfg){
+    await wait(SPEED==='fast'?320:1300);
+    if(!cfg.key||cfg.key.replace(/[sx\-]/gi,'').length<8) throw {message:'认证失败（401）：API Key 错误或失效。',kind:'auth'};
+    return {ok:true,reply:'连接成功',elapsed:1.2};
+  },
+  installDeps(onRow){ let i=0; (function n(){ if(i>=3)return; onRow(i,'run'); setTimeout(()=>{onRow(i,'done','完成');i++;n();},SPEED==='fast'?90:560); })(); },
+  async ensureLatex(onLog){ await wait(400); onLog('演示模式：已模拟安装 TinyTeX'); return {ok:true}; },
+  generate(opts,onEvent){ let i=0,stopped=false;
+    (function step(){ if(stopped||i>=STAGES.length){ if(!stopped) onEvent({type:'done',meta:{}}); return; }
+      onEvent({type:'stage',index:i,status:'run'});
+      setTimeout(()=>{ if(stopped)return; onEvent({type:'stage',index:i,status:'done',log:MOCK_LOGS[i]}); i++; step(); }, SPEED==='fast'?260:980); })();
+    return {cancel(){stopped=true;}}; },
+  async openFolder(){ return {ok:true}; },
+  async exportNote(){ return {ok:true}; },
+};
+const realApi={
+  async state(){ return fetch('/api/state').then(r=>r.json()); },
+  async listFiles(){ return fetch('/api/files').then(r=>r.json()); },
+  async saveConfig(cfg){ return fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)}).then(r=>r.json()); },
+  async testConnection(cfg){ const r=await fetch('/api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)}); const j=await r.json(); if(!j.ok) throw {message:j.message,kind:j.kind}; return j; },
+  installDeps(onRow){ fetch('/api/install_deps').then(r=>r.json()).then(j=>[0,1,2].forEach(i=>onRow(i,'done',j&&j.deps_ok?'就绪':'部分缺失'))).catch(()=>[0,1,2].forEach(i=>onRow(i,'done','--'))); },
+  async ensureLatex(onLog){ const r=await fetch('/api/ensure_latex'); const j=await r.json(); if(j.log) onLog(j.log); return j; },
+  generate(opts,onEvent){ let es=null,stopped=false;
+    fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(opts)})
+      .then(r=>{ if(!r.ok) return r.json().then(j=>{throw j;}); return r.json(); })
+      .then(({job_id})=>{
+        if(stopped)return; es=new EventSource('/api/progress/'+job_id);
+        es.onmessage=e=>{ try{const evt=JSON.parse(e.data); onEvent(evt); if(evt.type==='done'||evt.type==='error') es.close();}catch(_){} };
+        es.onerror=()=>{ onEvent({type:'error',message:'与后端的连接中断'}); es.close(); };
+      })
+      .catch(err=>onEvent({type:'error',message:(err&&err.message)||'无法启动生成'}));
+    return {cancel(){stopped=true; if(es)es.close();}}; },
+  async openFolder(){ return fetch('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:'output_notes'})}).then(r=>r.json()); },
+  async exportNote(kind){ window.open('/api/export?kind='+encodeURIComponent(kind),'_blank'); return {ok:true}; },
+};
+const api = IS_PACKAGED ? realApi : mockApi;
+if(!IS_PACKAGED) $('#badgePkg').classList.add('show');
+
+/* ---------- 主题 ---------- */
+function applyTheme(t){ html.setAttribute('data-theme',t); localStorage.setItem('rn_theme',t);
+  $('#themeIcon').innerHTML = t==='dark' ? '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>' : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/>'; }
+(function(){ const s=localStorage.getItem('rn_theme'); applyTheme(s||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')); })();
+$('#themeBtn').addEventListener('click',()=>applyTheme(html.getAttribute('data-theme')==='dark'?'light':'dark'));
+
+/* ---------- 视图 ---------- */
+const SETUP_KEY='rn_setup_complete';
+function setView(v){
+  $$('.view').forEach(el=>el.classList.toggle('active',el.id==='view-'+v));
+  $$('#viewswitch button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  $$('#segView button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  if(v==='setup') loadEnv();
+  if(v==='generate') refreshFiles();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+const naturalView=()=>localStorage.getItem(SETUP_KEY)==='1'?'generate':'setup';
+$$('#viewswitch button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.v)));
+$$('#segView button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.v)));
+$('#resetSetup').addEventListener('click',()=>{ localStorage.removeItem(SETUP_KEY); resetWiz(); setView('setup'); toast('已重置为首次配置'); });
+
+/* ---------- Tweaks ---------- */
+let SPEED='real';
+$('#tweaksFab').addEventListener('click',()=>$('#tweaksPanel').classList.toggle('open'));
+$$('#swatches .swatch').forEach(sw=>sw.addEventListener('click',()=>{ $$('#swatches .swatch').forEach(s=>s.classList.remove('active')); sw.classList.add('active'); html.setAttribute('data-accent',sw.dataset.a); localStorage.setItem('rn_accent',sw.dataset.a); }));
+(function(){ const a=localStorage.getItem('rn_accent'); if(a){ html.setAttribute('data-accent',a); $$('#swatches .swatch').forEach(s=>s.classList.toggle('active',s.dataset.a===a)); } })();
+$$('#segSpeed button').forEach(b=>b.addEventListener('click',()=>{ $$('#segSpeed button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); SPEED=b.dataset.s; }));
+
+/* ---------- 环境检查（向导第 0 步，接真实后端）---------- */
+async function loadEnv(){
+  try{
+    const s=await api.state();
+    $('#pyName').textContent='Python '+s.python_version;
+    $('#pyPath').textContent='路径 · '+s.python_path;
+    const dr=$('#chkDeps'); dr.classList.toggle('ok',s.deps_ok); dr.classList.toggle('warn',!s.deps_ok);
+    dr.querySelector('.ci').innerHTML = s.deps_ok?CHECK_SVG:'!';
+    $('#depsMeta').textContent = s.deps_ok?'就绪':'需安装';
+    const lr=$('#chkLatex'); lr.classList.toggle('ok',s.latex_ok); lr.classList.toggle('warn',!s.latex_ok);
+    lr.querySelector('.ci').innerHTML = s.latex_ok?CHECK_SVG:'!';
+    $('#latexDesc').textContent = s.latex_ok?'已检测到 LaTeX · 例题彩色边框可正常渲染':'未检测到 xelatex · PDF 导出需要（可选）';
+    $('#latexBtn').hidden = s.latex_ok;
+  }catch(e){ /* 演示模式保持默认 */ }
+}
+$('#latexBtn').addEventListener('click',async function(){ this.disabled=true; this.textContent='安装中…';
+  await api.ensureLatex(log=>toast(log)); this.hidden=true; $('#chkLatex').classList.add('ok'); $('#chkLatex').classList.remove('warn');
+  $('#chkLatex').querySelector('.ci').innerHTML=CHECK_SVG; $('#latexDesc').textContent='TinyTeX 已安装 · PDF 导出就绪'; toast('TinyTeX 安装完成'); });
+
+/* ============================================================
+   SETUP WIZARD
+   ============================================================ */
+let wizStep=0; const WIZ_N=5; let testPassed=false;
+function renderStepper(){
+  $$('#stepper .st').forEach(st=>{ const i=+st.dataset.i; st.classList.toggle('active',i===wizStep); st.classList.toggle('done',i<wizStep);
+    st.querySelector('.dot').innerHTML = i<wizStep?CHECK_SVG:(i+1); });
+  $$('.step-panel').forEach(p=>p.hidden=+p.dataset.step!==wizStep);
+  $('#backBtn').disabled=wizStep===0;
+  const next=$('#nextBtn');
+  if(wizStep===WIZ_N-1){ next.style.display='none'; }
+  else { next.style.display=''; next.textContent = wizStep===3 ? '保存并完成 →' : '下一步 →'; }
+  validateStep();
+}
+function validateStep(){
+  const next=$('#nextBtn'); let ok=true;
+  if(wizStep===2){ const k=$('#apiKey').value.trim(); ok=k.length>=8;
+    $('#apiKey').classList.toggle('invalid', !ok && k.length>0); $('#keyErr').classList.toggle('show', !ok && k.length>0); }
+  if(wizStep===3){ ok=testPassed; $('#wizHint').textContent = testPassed?'连接正常，可以保存配置':'请先测试连接成功后再继续'; }
+  else if(wizStep!==2){ $('#wizHint').textContent='配置完成后，下次打开将直接进入笔记整理'; }
+  next.disabled=!ok;
+}
+function gotoStep(i){ wizStep=Math.max(0,Math.min(WIZ_N-1,i)); renderStepper(); if(wizStep===1) runDeps(); }
+$('#nextBtn').addEventListener('click',()=>gotoStep(wizStep+1));
+$('#backBtn').addEventListener('click',()=>gotoStep(wizStep-1));
+$('#apiKey').addEventListener('input',validateStep);
+
+$$('#provs .prov').forEach(p=>p.addEventListener('click',()=>{ $$('#provs .prov').forEach(x=>x.classList.remove('selected')); p.classList.add('selected');
+  const [_,b,m]=PROVIDERS[p.dataset.k]; if(b)$('#apiBase').value=b; $('#apiModel').value=m; }));
+$('#eyeKey').addEventListener('click',()=>{ const k=$('#apiKey'); k.type=k.type==='password'?'text':'password'; });
+
+function runDeps(){ const rows=$$('#depList .checkrow');
+  api.installDeps((i,state,meta)=>{ const r=rows[i]; if(!r)return; r.classList.remove('wait');
+    if(state==='run'){ r.querySelector('.ci').innerHTML='<span class="spin"></span>'; r.querySelector('.cmeta').textContent='安装中…'; }
+    else { r.classList.add('ok'); r.querySelector('.ci').innerHTML=CHECK_SVG; r.querySelector('.cmeta').textContent=meta||'完成'; } }); }
+
+$('#testBtn').addEventListener('click',async function(){
+  const box=$('#testBox'),txt=$('#testText'),spin=$('#testSpin'); this.disabled=true;
+  box.className='testbox'; txt.textContent='正在发送测试请求…'; spin.style.display='inline-block'; testPassed=false;
+  const cfg={base:$('#apiBase').value.trim(),key:$('#apiKey').value.trim(),model:$('#apiModel').value.trim()};
+  try{ const r=await api.testConnection(cfg); box.className='testbox ok'; spin.style.display='none';
+    txt.innerHTML=`连接成功（${(r.elapsed||1).toFixed(1)}s）<br><small>模型回复：${r.reply||'连接成功'}</small>`; testPassed=true; toast('大模型连接正常'); }
+  catch(err){ box.className='testbox fail'; spin.style.display='none';
+    txt.innerHTML=(err&&err.message)||'连接失败'+'<br><small>'+hintFor(err)+'<small>'; }
+  finally{ this.disabled=false; validateStep(); }
+});
+function hintFor(err){ const m=(err&&err.message||'').toLowerCase();
+  if(err&&err.kind==='auth'||/401|unauthorized|key/.test(m)) return '通常是 API Key 错误或失效。';
+  if(/model|not exist/.test(m)) return '模型名不被该接口支持，请核对。';
+  if(/timed out|connection|resolve|proxy|ssl/.test(m)) return '网络不通或 base_url 写错（是否需要代理？）。';
+  return '可修正后重试，或检查 .env。'; }
+
+$('#finishBtn').addEventListener('click',async ()=>{
+  await api.saveConfig({REVIEW_API_BASE:$('#apiBase').value.trim(),REVIEW_API_KEY:$('#apiKey').value.trim(),REVIEW_MODEL:$('#apiModel').value.trim()});
+  $('#cfgModel').textContent=$('#apiModel').value.trim()+' · '+($('#apiBase').value.includes('bigmodel')?'智谱 GLM':'已配置');
+  localStorage.setItem(SETUP_KEY,'1'); setView('generate'); toast('配置完成，开始整理吧');
+});
+function resetWiz(){ wizStep=0; testPassed=false; renderStepper();
+  $('#testBox').className='testbox'; $('#testText').textContent='尚未测试';
+  $$('#depList .checkrow').forEach((r,i)=>{ r.className='checkrow'+(i===0?'':' wait'); r.querySelector('.cmeta').textContent=i===0?'安装中…':'等待'; r.querySelector('.ci').innerHTML=i===0?'<span class="spin"></span>':''; }); }
+
+/* ============================================================
+   GENERATE FLOW
+   ============================================================ */
+const TYPE_COLOR={pptx:'#C24A3D',pdf:'#B4452F',docx:'#2F5D8C',doc:'#2F5D8C',img:'#4A7A55',ppt:'#C24A3D'};
+let files=[];
+async function refreshFiles(){ try{ files=await api.listFiles(); renderFiles(); }catch(e){ files=[]; renderFiles(); } }
+function renderFiles(){
+  const list=$('#filelist'); list.innerHTML='';
+  if(!files.length){ list.innerHTML='<div class="empty-hint">input/ 文件夹还是空的 — 把课件拖到这里即可添加</div>'; }
+  const X_SVG='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const UNDO_SVG='<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>';
+  files.forEach((f,idx)=>{ const el=document.createElement('div'); el.className='fileitem'+(f.excluded?' excluded':'');
+    const c=TYPE_COLOR[f.type]||'#8A8275';
+    const sizeMB=f.size_kb? (f.size_kb/1024).toFixed(1)+' MB' : (f.pages?f.pages+' 页':'');
+    el.innerHTML=`<span class="fileicon" style="background:${c}">${(f.type||'file').toUpperCase().slice(0,4)}</span><div class="fn">${f.name}</div>${f.excluded?'<span class="ex-tag">已排除</span>':''}<span class="fm">${sizeMB}</span><button class="file-toggle" title="${f.excluded?'恢复（参与生成）':'排除（不参与生成，不删文件）'}">${f.excluded?UNDO_SVG:X_SVG}</button>`;
+    el.querySelector('.file-toggle').addEventListener('click',()=>{
+      if(IS_PACKAGED){ fetch('/api/exclude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,exclude:!f.excluded})}).then(()=>refreshFiles()); }
+      else { files[idx].excluded=!files[idx].excluded; renderFiles(); }
+    });
+    list.appendChild(el); });
+  const active=files.filter(f=>!f.excluded).length, exc=files.length-active;
+  $('#fileCountHint').textContent=active? (exc?`${active} 个文件待整理（已排除 ${exc} 个）`:`${active} 个文件待整理`) : (files.length?'全部已排除':'尚无课件');
+  $('#genBtn').disabled=active===0;
+}
+const drop=$('#drop');
+function addFiles(fileList){
+  const arr=[...(fileList||[])]; if(!arr.length) return;
+  if(IS_PACKAGED){
+    toast('正在加入 input/ …');
+    Promise.all(arr.map(fl=>{ const fd=new FormData(); fd.append('file',fl);
+      return fetch('/api/add_file',{method:'POST',body:fd}).then(r=>r.json()); }))
+      .then(()=>refreshFiles()).then(()=>toast('已加入 '+arr.length+' 个文件到 input/'));
+  } else {
+    arr.forEach(fl=>{ const ext=(fl.name.split('.').pop()||'').toLowerCase(); files.push({name:fl.name,type:ext,pages:0,size_kb:Math.round(fl.size/1024)}); });
+    renderFiles(); toast('已添加 '+arr.length+' 个文件');
+  }
+}
+drop.addEventListener('click',()=>{ if(IS_PACKAGED){ toast('把课件直接拖到这里即可添加'); } else if(files.length<12){ files=[...MOCK_FILES]; renderFiles(); toast('已从 input/ 读取课件'); } });
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+$('#advHead').addEventListener('click',function(){ this.classList.toggle('open'); $('#advBody').classList.toggle('open'); });
+
+function buildStages(){ $('#stages').innerHTML=STAGES.map((s,i)=>`<div class="stage wait" data-i="${i}" style="--i:${i}"><div class="sicon">${i+1}</div><div class="sbody"><div class="stop"><span class="sname">${s.name}</span><span class="smeta"></span></div><div class="sdesc">${s.desc}</div><div class="sbar"><div class="fill"></div></div><div class="slog"></div></div></div>`).join(''); }
+
+function gatherOpts(){ return { course:$('#courseName').value.trim()||'未命名课程', discipline:$('#discipline').value,
+  chapters:$('#chapters').value.trim(), max_chars:parseInt($('#maxChars').value)||6000,
+  pdf:$('#pdfToggle').checked, cache:$('#cacheToggle').checked, no_llm:$('#demoToggle').checked }; }
+
+let running=false, genT0, genTick, genCancel=null;
+function startElapsed(){ genT0=performance.now(); clearInterval(genTick); genTick=setInterval(()=>$('#genElapsed').textContent='已用 '+((performance.now()-genT0)/1000).toFixed(1)+'s',100); }
+function stopElapsed(){ clearInterval(genTick); }
+
+$('#genBtn').addEventListener('click',function(){
+  if(running)return; running=true; this.disabled=true; this.textContent='正在生成…';
+  $$('#phases .phase')[2].classList.add('reached');
+  $('#pipeline').hidden=false; $('#result').hidden=true; buildStages(); startElapsed();
+  genCancel=api.generate(gatherOpts(),handleGenEvent);
+});
+function handleGenEvent(evt){
+  if(evt.type==='stage'){ const el=$(`#stages .stage[data-i="${evt.index}"]`); if(!el)return;
+    if(evt.status==='run'){ el.classList.remove('wait'); el.classList.add('run'); }
+    else if(evt.status==='skip'){ el.classList.remove('wait'); el.classList.add('skip'); el.querySelector('.smeta').textContent='跳过'; }
+    else { el.classList.remove('run'); el.classList.add('done'); el.querySelector('.sicon').innerHTML=CHECK_SVG; el.querySelector('.smeta').textContent='完成'; if(evt.log)el.querySelector('.slog').textContent=evt.log; }
+  } else if(evt.type==='log'){ const el=$('#stages .stage.run .slog'); if(el)el.textContent=evt.line; }
+  else if(evt.type==='done'){ finishGen(evt.meta||{}); }
+  else if(evt.type==='error'){ genError(evt.message); }
+}
+function finishGen(meta){ running=false; stopElapsed();
+  $('#genBtn').disabled=false; $('#genBtn').textContent='生 成 复 习 笔 记';
+  const sec=(performance.now()-genT0)/1000;
+  $('#resultMeta').textContent=`${gatherOpts().course} · ${meta.chapters||5} 章 · 用时 ${sec.toFixed(1)}s`;
+  $('#result').hidden=false;
+  const top=$('#result').getBoundingClientRect().top+window.scrollY-40; window.scrollTo({top,behavior:'smooth'});
+  toast('复习笔记已生成');
+}
+function genError(msg){ running=false; stopElapsed();
+  $('#genBtn').disabled=false; $('#genBtn').textContent='生 成 复 习 笔 记';
+  const r=$('#stages .stage.run'); if(r){ r.classList.remove('run'); r.classList.add('fail'); r.querySelector('.smeta').textContent='失败'; r.querySelector('.slog').textContent='✗ '+(msg||'未知错误'); }
+  toast('生成失败：'+(msg||'未知错误'));
+}
+$$('#result [data-export]').forEach(b=>b.addEventListener('click',async ()=>{
+  const m={md:'已导出 复习笔记.md',pdf:'已导出 复习笔记.pdf',open:'已打开 output_notes/'};
+  if(b.dataset.export==='open') await api.openFolder(); else await api.exportNote(b.dataset.export);
+  toast(m[b.dataset.export]);
+}));
+$('#resetGen').addEventListener('click',()=>{ $('#pipeline').hidden=true; $('#result').hidden=true; $$('#phases .phase')[2].classList.remove('reached'); window.scrollTo({top:0,behavior:'smooth'}); });
+
+/* ============================================================ INIT
+   首次与否由后端 .env 决定（真实模式），不再依赖 localStorage——否则 pywebview 每次重开
+   都丢 localStorage，导致每次都要重新配置。mock 模式无后端，仍用 localStorage 演示。 */
+(async function init(){
+  renderStepper();
+  if(IS_PACKAGED){
+    try{ const s=await api.state(); setView(s.first_run ? 'setup' : 'generate'); return; }
+    catch(e){ /* 取不到就退回首屏 */ }
+  }
+  setView(naturalView());
+})();
+</script>
+</body>
+</html>

@@ -203,8 +203,12 @@ def extract_image(path: Path, idx: int):
 
 
 # ----------------------------- 入口 -----------------------------
-def extract_dir(input_dir: Path):
-    """提取目录下全部支持格式的文件，返回 (records, errors)。"""
+def extract_dir(input_dir: Path, exclude=None):
+    """提取目录下全部支持格式的文件，返回 records。
+
+    exclude: 文件名集合，其中的文件将被跳过（GUI「排除」用——不删原文件，仅不参与生成）。
+    """
+    exclude = set(exclude or ())
     records = []
     img_idx = 0
     ext_map = {
@@ -214,6 +218,8 @@ def extract_dir(input_dir: Path):
     }
     img_exts = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
     for path in sorted(p for p in input_dir.iterdir() if p.is_file()):
+        if path.name in exclude:
+            continue
         ext = path.suffix.lower()
         if ext in ext_map:
             records.extend(ext_map[ext](path))

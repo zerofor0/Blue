@@ -16,6 +16,10 @@ from pathlib import Path
 
 import md2tex
 
+# Windows 下让 xelatex/kpsewhich 等控制台子进程静默运行（不弹黑窗）；非 Windows 为 0，无副作用。
+# 注意：capture_output 只重定向标准输出，挡不住 Windows 为控制台程序自动分配的可见窗口。
+CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
 REQUIRED_PACKAGES = ["ctex.sty", "tcolorbox.sty", "fancyhdr.sty", "listings.sty",
                      "titlesec.sty", "tabularx.sty", "hyperref.sty",
                      "mathrsfs.sty", "mathtools.sty", "pdfcol.sty"]
@@ -108,7 +112,8 @@ def _kpsewhich_bin() -> str:
 
 def _kpsewhich(pkg: str) -> bool:
     try:
-        return subprocess.run([_kpsewhich_bin(), pkg], capture_output=True, text=True).stdout.strip() != ""
+        return subprocess.run([_kpsewhich_bin(), pkg], capture_output=True, text=True,
+                              creationflags=CREATE_NO_WINDOW).stdout.strip() != ""
     except Exception:
         return False
 
@@ -176,7 +181,8 @@ def build_pdf(md_path: Path, pdf_path: Path, course: str | None = None) -> bool:
         for _ in range(2):  # 两遍：目录/交叉引用
             r = subprocess.run([exe, "-interaction=nonstopmode",
                                 "-output-directory", str(td), str(texf)],
-                               capture_output=True, text=True, encoding="utf-8", errors="replace")
+                               capture_output=True, text=True, encoding="utf-8", errors="replace",
+                               creationflags=CREATE_NO_WINDOW)
             if r.returncode != 0:
                 ok = False
                 _report_error(r, td)

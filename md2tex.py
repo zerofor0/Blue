@@ -47,8 +47,13 @@ def _escape(s: str) -> str:
     return "".join(out)
 
 
-def _convert_markers(s: str) -> str:
-    """把 【...】 转成彩色标签命令 \\mk{颜色}{文字}。"""
+def _convert_markers(s: str, *, for_section: bool = False) -> str:
+    """把 【...】 转成彩色标签命令 \\mk{颜色}{文字}。
+
+    for_section=True（标题进目录/PDF 书签）时，用 \\texorpdfstring 包一层：正文与
+    目录仍渲染彩色 \\mk 盒子，PDF 书签降级为纯文字，避免 hyperref 因 \\colorbox/
+    \\fboxsep 等报 "Token not allowed in a PDF string" 警告并污染书签文字。
+    """
     def repl(m):
         text = m.group(1).strip()
         key = text
@@ -58,7 +63,11 @@ def _convert_markers(s: str) -> str:
                 if k in text:
                     color = c; break
         color = color or "defblue"
-        return r"\mk{" + color + "}{" + _escape(text) + "}"
+        esc = _escape(text)
+        mk = r"\mk{" + color + "}{" + esc + "}"
+        if for_section:
+            return r"\texorpdfstring{" + mk + "}{" + esc + "}"
+        return mk
     return re.sub(r"【([^】]+)】", repl, s)
 
 
@@ -66,7 +75,7 @@ _PH = "@@PH@@"  # 占位符分隔符（纯 ASCII，正文里不会出现）
 
 
 def _inline(s: str) -> str:
-    """数学感知的行内转换：math/code/bold/emph/escape/markers。"""
+    """数学感知的行内转换：math/code/link/bold/emph/escape/markers。"""
     # 1) 抽数学（$$...$$ 先于 $...$）
     math_spans = []
 
@@ -95,6 +104,15 @@ def _inline(s: str) -> str:
         return f"{_PH}C{len(code_spans) - 1}{_PH}"
 
     s = re.sub(r"`([^`]+)`", take_code, s)
+    # 2.5) 抽链接 [text](url)（必须在代码之后：否则会误吃代码里的 [..](..) 正则片段，
+    #      如 `(\d{4})[\.-](\d{1,2})`；代码先抽走后，这类片段已是占位符，不会被匹配）
+    link_spans = []
+
+    def take_link(m):
+        link_spans.append((m.group(1), m.group(2)))
+        return f"{_PH}L{len(link_spans) - 1}{_PH}"
+
+    s = re.sub(r"(?<!\!)\[([^\]]+)\]\(([^)\s]+)\)", take_link, s)
     # 3) 抽粗体 **...**
     bold_spans = []
 
@@ -118,7 +136,7 @@ def _inline(s: str) -> str:
     # 7) 还原：math 原样；code/bold/emph 内部各自处理。
     #    bold/emph 内部可能嵌套 math 占位符（如 **样本空间 $\Omega$**），
     #    故对其内容递归 restore。
-    pat = re.compile(_PH + r"([MBCE])(\d+)" + _PH, re.S)
+    pat = re.compile(_PH + r"([MBCEL])(\d+)" + _PH, re.S)
 
     def restore_once(text: str) -> str:
         def r(m):
@@ -135,6 +153,12 @@ def _inline(s: str) -> str:
                 inner = _escape(code_spans[idx])
                 inner = pat.sub(r, inner) if _PH in inner else inner
                 return r"\texttt{" + inner + "}"
+            if tag == "L":
+                # 链接文字里可能已抽走 math/code 占位符，递归还原后再转义
+                ltext, url = link_spans[idx]
+                inner = _escape(ltext)
+                inner = pat.sub(r, inner) if _PH in inner else inner
+                return r"\href{" + url + "}{" + inner + "}"
             if tag == "B":
                 # 先转义，再递归还原内部嵌套的 math 占位符，最后转标记
                 inner = _convert_markers(_escape(bold_spans[idx]))
@@ -167,17 +191,20 @@ def _math_pdf_text(math_body: str) -> str:
 
 
 def _heading_text(text: str, *, for_section: bool) -> str:
-    r"""标题正文转换：数学感知转义 + 【标记】彩色标签。
+    r"""标题正文转换：数学感知转义 + 内联代码 + 【标记】彩色标签。
 
-    与正文 _inline 同样先把 $...$ / $$...$$ 抽数学原样透传、再转义其余字符——否则
-    _escape 会把 $\mathbb{B}$ 破成 \$\textbackslash{}mathbb\{B\}\$，标题里的数学
-    就成了乱码字面量（即「标题位置公式不渲染」的根因）。
+    与正文 _inline 同样先把 $...$ / $$...$$ 抽数学原样透传、再抽 `...` 内联代码、
+    再转义其余字符——否则 _escape 会把 $\mathbb{B}$ 破成 \$\textbackslash{}mathbb\{B\}\$，
+    标题里的数学就成了乱码字面量（即「标题位置公式不渲染」的根因）；同理，不抽内联代码
+    会让 `vector` 的反引号原样残留、在 PDF 里渲染成左引号（即「标题位置代码不渲染」的根因）。
 
     for_section=True（\section/\subsection/\subsubsection，进目录与 PDF 书签）时，
-    把每个数学段包进 \texorpdfstring{$真数学$}{降级纯文本}：正文与目录渲染真数学，
-    PDF 书签用降级文本，避免 hyperref「Token not allowed in a PDF string」。
+    把每个数学段包进 \texorpdfstring{$真数学$}{降级纯文本}、每个内联代码段包进
+    \texorpdfstring{\texttt{...}}{降级纯文本}：正文与目录渲染真效果，PDF 书签用
+    降级文本，避免 hyperref「Token not allowed in a PDF string」。
     """
     math_spans = []
+    code_spans = []
 
     def take_math(m):
         span = m.group(0)
@@ -187,24 +214,38 @@ def _heading_text(text: str, *, for_section: bool) -> str:
         math_spans.append(span)
         return f"{_PH}M{len(math_spans) - 1}{_PH}"
 
+    def take_code(m):
+        code_spans.append(m.group(1))
+        return f"{_PH}C{len(code_spans) - 1}{_PH}"
+
     s = re.sub(r"\$\$.*?\$\$", take_math, text, flags=re.S)
     s = re.sub(r"\$[^$\n]+?\$", take_math, s)
+    s = re.sub(r"`([^`]+)`", take_code, s)
     s = _escape(s)
-    s = _convert_markers(s)
-    if not math_spans:
+    s = _convert_markers(s, for_section=for_section)
+    if not math_spans and not code_spans:
         return s
 
-    pat = re.compile(_PH + r"M(\d+)" + _PH)
+    pat = re.compile(_PH + r"([MC])(\d+)" + _PH)
 
     def restore(m):
-        span = math_spans[int(m.group(1))]
-        if span.startswith("$$"):  # 标题里的展示公式退化为行内（标题不宜套 equation 环境）
-            inner = span[2:-2]
-        else:
-            inner = span[1:-1]
+        tag, idx = m.group(1), int(m.group(2))
+        if tag == "M":
+            span = math_spans[idx]
+            if span.startswith("$$"):  # 标题里的展示公式退化为行内（标题不宜套 equation 环境）
+                inner = span[2:-2]
+            else:
+                inner = span[1:-1]
+            if for_section:
+                return r"\texorpdfstring{$" + inner + "$}{" + _math_pdf_text(inner) + "}"
+            return "$" + inner + "$"
+        # tag == "C"：内联代码 -> 等宽体 \texttt{}；进目录/书签的标题用 \texorpdfstring
+        # 降级（\texttt 在 PDF 书签里非法），书签第二参数用转义后的纯文本，hyperref
+        # 的 pdfstringdef 认得 \_ \# \% \$ \& \textbackslash 等并还原为字面量。
+        inner = _escape(code_spans[idx])
         if for_section:
-            return r"\texorpdfstring{$" + inner + "$}{" + _math_pdf_text(inner) + "}"
-        return "$" + inner + "$"
+            return r"\texorpdfstring{\texttt{" + inner + "}}{" + inner + "}"
+        return r"\texttt{" + inner + "}"
 
     return pat.sub(restore, s)
 

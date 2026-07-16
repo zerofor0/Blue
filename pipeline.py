@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import config
 import extractors
 from extractors import Record
 from llm import get_llm_client, CachingClient
@@ -821,15 +822,19 @@ def phase_fill_examples(draft, chapters, problems, client, sys_prompt, args, wor
 
 
 # ============================ 主流程 ============================
-def run_pipeline(input_dir: Path, out_path: Path, args):
+def run_pipeline(input_dir: Path, out_path: Path, args, exclude=None):
     print(f"[1] 提取文件内容：{input_dir}")
-    records = extractors.extract_dir(input_dir)
+    records = extractors.extract_dir(input_dir, exclude=exclude)
     if not records:
         print("[error] 未能提取到任何文本，结束。"); return
     print(f"      共提取 {len(records)} 条记录，约 {sum(len(r.content) for r in records)} 字。")
     records = dedup_records(records)
 
-    work = out_path.parent / "work"
+    # work/（中间产物 + 续跑缓存）锚定到项目根目录，不随输出位置移动；
+    # 这样最终产物（MD+PDF）单独进 output_notes/ 时，缓存仍能被复用。
+    # work/（中间产物 + 续跑缓存）锚定到 exe 旁（frozen）或项目根（CLI），
+    # 不随输出位置移动；用 config.app_root() 而非 __file__/cwd，保证冻结后仍可写。
+    work = config.app_root() / "work"
     work.mkdir(parents=True, exist_ok=True)
 
     discipline = args.discipline
@@ -908,6 +913,7 @@ def run_pipeline(input_dir: Path, out_path: Path, args):
         chapter_md, extract_formulas(all_md), [], [], chapters,
         exam_appendix=(analysis if exam_recs else ""),
     )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(md, encoding="utf-8")
     if isinstance(client, CachingClient) and (client.hits or client.misses):
         print(f"[cache] 命中 {client.hits} / 共 {client.hits + client.misses} 次调用（仅未命中才真正请求/计费）")
